@@ -1,16 +1,16 @@
 import os
 import io
+import json
+from datetime import datetime
 import streamlit as st
 import qrcode
 from PIL import Image
 import google.generativeai as genai
 
 # =========================================================
-# 🔑 API KEY 직접 설정 (본인의 API Key를 입력하세요)
+# 🔑 API KEY 설정 (Streamlit Secrets 지원)
 # =========================================================
-# ❌ 기존: API_KEY = "AIzaSy..."
-# ⭕ 수정: Streamlit 보안 설정(Secrets)에서 키를 불러오는 방식
-API_KEY = st.secrets.get("GEMINI_API_KEY", "")
+API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
 
 # ---------------------------------------------------------
 # 1. 페이지 레이아웃
@@ -61,9 +61,10 @@ if img_file:
     st.image(image, caption="분석 대상 이미지", use_container_width=True)
 
     if not API_KEY or API_KEY == "여기에_Gemini_API_KEY_입력":
-        st.error("⚠️ app.py 파일 상단의 API_KEY 변수에 본인의 Gemini API Key를 입력해주세요.")
+        st.error("⚠️ Streamlit Secrets에 GEMINI_API_KEY를 등록해 주세요.")
     else:
         if st.button("🔥 AI 영양 분석 실행", type="primary", use_container_width=True):
+            # 1. 시간대별 식사 구분 자동 계산
             current_hour = datetime.now().hour
             if 5 <= current_hour < 10:
                 meal_type = "아침 식단"
@@ -73,31 +74,39 @@ if img_file:
                 meal_type = "저녁 식단"
             else:
                 meal_type = "야식/간식"
+
             with st.spinner("AI가 식단을 분석 중입니다..."):
                 try:
-                    # Gemini 설정
+                    # Gemini 설정 및 빠른 모델(gemini-2.5-flash) 적용
                     genai.configure(api_key=API_KEY)
-                    model = genai.GenerativeModel('gemini-3.6-flash')
+                    model = genai.GenerativeModel('gemini-2.5-flash')
 
+                    # 2. JSON 형태 결과 응답을 위한 맞춤 프롬프트
                     prompt = f"""
                     당신은 전문 영양 코치입니다. 전달받은 이미지는 사용자가 **{meal_type}**으로 제출한 식단 사진입니다.
                     
-                    아래 규칙에 맞춰 핵심 내용만 명확하고 빠르게 분석해 주세요:
-                    1. **식사 구분**: "{meal_type}"으로 명시할 것.
-                    2. **음식 구성**: 사진 속 주요 메뉴와 구성 요소 나열.
-                    3. **영양 분석**: 추정 총 칼로리(kcal)와 주요 영양소(탄수화물, 단백질, 지방) 대략적 함량 제공.
-                    4. **영양 코칭**: 식단의 장점 1가지와 개선할 점/조언 1가지를 짧고 명확하게 제시.
-                    
-                    답변은 군더더기 없이 깔끔하게 마크다운 포맷으로 전달해 주세요.
+                    반드시 아래 예시와 완전히 똑같은 형태의 Pure JSON 형식으로만 응답해 주세요. (Markdown ```json 태그나 다른 설명 금지)
+
+                    {{
+                        "meal_type": "{meal_type}",
+                        "total_calories": 550,
+                        "carbs_g": 65,
+                        "protein_g": 30,
+                        "fat_g": 15,
+                        "foods": [
+                            {{"name": "음식이름", "portion": "1공기", "calories": 300}}
+                        ],
+                        "health_advice": "식단 평가 및 영양 조언 1~2문장"
+                    }}
                     """
 
                     response = model.generate_content([prompt, image])
                     
-                    # JSON 파싱
-                    import json
+                    # 3. JSON 파싱
                     clean_text = response.text.replace("```json", "").replace("```", "").strip()
                     data = json.loads(clean_text)
 
+                    # 4. 분석 결과 화면 표시
                     st.success("분석 완료!")
                     st.subheader(f"📌 {data['meal_type']} (총 {data['total_calories']} kcal)")
 
@@ -120,24 +129,3 @@ if img_file:
 
                 except Exception as e:
                     st.error(f"분석 오류 발생: {e}")
-                    
-# 1. 터미널 열기
-# VS Code 실행 후 단축키 Ctrl + Shift + ' (또는 상단 메뉴 Terminal -> New Terminal)를 눌러 터미널을 엽니다.
-
-# 2. 한 번에 한 줄로 명령어 입력하기
-# 터미널에 아래 명령어를 그대로 복사해서 붙여넣고 Enter를 칩니다.
-# PowerShell
-# python -m pip install streamlit google-genai pillow pydantic qrcode[pil]
-# 설치되는 핵심 패키지 항목
-# streamlit: 웹 UI 화면을 띄워주는 프레임워크
-# google-genai: Gemini 3.6 모델을 호출하는 구글 공식 SDK
-# pillow: 사진(이미지) 업로드 및 처리를 위한 라이브러리
-# pydantic & qrcode[pil]: 영양 데이터 구조화 및 QR 코드 생성용 패키지
-
-# 3. 학교 컴퓨터 실행 팁
-# 학교 컴퓨터는 재부팅하면 설치했던 라이브러리가 싹 삭제(원복)되는 경우가 많습니다.
-# 따라서 학교에서 수업이나 발표 시작 직전에 위 pip install 명령어 한 줄을 터미널에 먼저 쳐서 라이브러리를 깔아준 뒤, python -m streamlit run app.py를 실행하시면 깔끔하게 작동합니다.
-# VS Code 왼쪽 파일 목록(Explorer)에 있는 app.py 우클릭 ➔ [Copy Path] (경로 복사)를 누른 뒤, 터미널에 아래처럼 따옴표 안에 붙여넣고 엔터를 누르세요!
-
-# PowerShell
-# python -m streamlit run "복사한경로붙여넣기"
