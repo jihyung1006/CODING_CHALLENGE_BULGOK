@@ -64,25 +64,31 @@ if img_file:
         st.error("⚠️ app.py 파일 상단의 API_KEY 변수에 본인의 Gemini API Key를 입력해주세요.")
     else:
         if st.button("🔥 AI 영양 분석 실행", type="primary", use_container_width=True):
+            current_hour = datetime.now().hour
+            if 5 <= current_hour < 10:
+                meal_type = "아침 식단"
+            elif 10 <= current_hour < 16:
+                meal_type = "점심 식단"
+            elif 16 <= current_hour < 22:
+                meal_type = "저녁 식단"
+            else:
+                meal_type = "야식/간식"
             with st.spinner("AI가 식단을 분석 중입니다..."):
                 try:
                     # Gemini 설정
                     genai.configure(api_key=API_KEY)
                     model = genai.GenerativeModel('gemini-3.6-flash')
 
-                    prompt = """
-                    이 음식 사진을 분석해서 아래 JSON 양식으로만 답변해줘. 마크다운 기호 없이 순수 JSON만 출력해.
-                    {
-                      "meal_type": "식사 종류 (예: 점심 식단)",
-                      "total_calories": 총 칼로리 숫자,
-                      "carbs_g": 총 탄수화물g 숫자,
-                      "protein_g": 총 단백질g 숫자,
-                      "fat_g": 총 지방g 숫자,
-                      "foods": [
-                        {"name": "음식명", "portion": "양", "calories": 칼로리숫자}
-                      ],
-                      "health_advice": "영양학적 조언 2~3문장"
-                    }
+                    prompt = f"""
+                    당신은 전문 영양 코치입니다. 전달받은 이미지는 사용자가 **{meal_type}**으로 제출한 식단 사진입니다.
+                    
+                    아래 규칙에 맞춰 핵심 내용만 명확하고 빠르게 분석해 주세요:
+                    1. **식사 구분**: "{meal_type}"으로 명시할 것.
+                    2. **음식 구성**: 사진 속 주요 메뉴와 구성 요소 나열.
+                    3. **영양 분석**: 추정 총 칼로리(kcal)와 주요 영양소(탄수화물, 단백질, 지방) 대략적 함량 제공.
+                    4. **영양 코칭**: 식단의 장점 1가지와 개선할 점/조언 1가지를 짧고 명확하게 제시.
+                    
+                    답변은 군더더기 없이 깔끔하게 마크다운 포맷으로 전달해 주세요.
                     """
 
                     response = model.generate_content([prompt, image])
