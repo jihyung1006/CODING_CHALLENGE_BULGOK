@@ -1,7 +1,7 @@
 import os
 import io
 import json
-from datetime import datetime  # 👈 필수 모듈 추가 (NameError 해결)
+from datetime import datetime
 import streamlit as st
 import qrcode
 from PIL import Image
@@ -102,5 +102,5 @@ if img_file:
 
                     response = model.generate_content([prompt, image])
                     
-                    # 3. JSON 데이터 처리
+                    # 3. JSON 데이터 처리 (줄바꿈 및 따옴표 오류 수정완료)
                     clean_text = response.text.replace("
