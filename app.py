@@ -85,7 +85,7 @@ if img_file:
                     prompt = f"""
                     당신은 전문 영양 코치입니다. 전달받은 이미지는 사용자가 **{meal_type}**으로 제출한 식단 사진입니다.
                     
-                    반드시 아래 예시와 완전히 똑같은 Pure JSON 형식으로만 응답하세요. (마크다운 ```json 태그나 기타 설명 금지)
+                    반드시 아래 예시와 완전히 똑같은 Pure JSON 형식으로만 응답하세요.
 
                     {{
                         "meal_type": "{meal_type}",
@@ -102,5 +102,34 @@ if img_file:
 
                     response = model.generate_content([prompt, image])
                     
-                    # 3. JSON 데이터 처리 (줄바꿈 및 따옴표 오류 수정완료)
-                    clean_text = response.text.replace("
+                    # 3. 안전한 JSON 데이터 추출 (에러 유발 코드 완전 수정)
+                    raw_text = response.text.strip()
+                    start_idx = raw_text.find("{")
+                    end_idx = raw_text.rfind("}") + 1
+                    json_str = raw_text[start_idx:end_idx]
+                    
+                    data = json.loads(json_str)
+
+                    # 4. 결과 출력
+                    st.success("분석 완료!")
+                    st.subheader(f"📌 {data['meal_type']} (총 {data['total_calories']} kcal)")
+
+                    col1, col2, col3 = st.columns(3)
+                    col1.metric("탄수화물", f"{data['carbs_g']}g")
+                    col2.metric("단백질", f"{data['protein_g']}g")
+                    col3.metric("지방", f"{data['fat_g']}g")
+
+                    st.divider()
+
+                    st.markdown("### 🍱 항목별 상세 정보")
+                    for food in data['foods']:
+                        with st.expander(f"**{food['name']}** ({food['portion']}) - {food['calories']} kcal"):
+                            st.write(f"- 추정 칼로리: {food['calories']} kcal")
+
+                    st.divider()
+
+                    st.markdown("### 💡 AI 영양 코치의 조언")
+                    st.info(data['health_advice'])
+
+                except Exception as e:
+                    st.error(f"분석 오류 발생: {e}")
