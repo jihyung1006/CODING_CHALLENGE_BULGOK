@@ -8,7 +8,9 @@ import google.generativeai as genai
 # =========================================================
 # 🔑 API KEY 직접 설정 (본인의 API Key를 입력하세요)
 # =========================================================
-API_KEY = "AQ.Ab8RN6IhKXrV_og5la_bVOZyNUivt5fMDEcHTATwT9gAswmHYA"
+# ❌ 기존: API_KEY = "AIzaSy..."
+# ⭕ 수정: Streamlit 보안 설정(Secrets)에서 키를 불러오는 방식
+API_KEY = st.secrets.get("GEMINI_API_KEY", "")
 
 # ---------------------------------------------------------
 # 1. 페이지 레이아웃
