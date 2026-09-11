@@ -15,21 +15,14 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
 # =========================================================
-# 📌 앱 기본 정보
+# 📌 앱 기본 정보 및 설정
 # =========================================================
 APP_TITLE = "🥗 식단 관리 서비스"
-
-# =========================================================
-# 🔑 KST (한국 표준시 UTC+9) 시간 설정
-# =========================================================
 KST = timezone(timedelta(hours=9))
 
 def get_kst_now():
     return datetime.now(KST)
 
-# =========================================================
-# 🔑 API KEY & Firebase 초기화
-# =========================================================
 DEFAULT_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
 
 if not firebase_admin._apps:
@@ -44,7 +37,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # =========================================================
-# 🤖 AI API 호출 재시도 함수
+# 🤖 AI API 및 PDF 헬퍼
 # =========================================================
 def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
     if not api_key:
@@ -65,9 +58,6 @@ def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
             else:
                 raise e
 
-# =========================================================
-# 📄 PDF 리포트 생성
-# =========================================================
 def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
     pdf = FPDF()
     pdf.add_page()
@@ -91,9 +81,9 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     
     return bytes(pdf.output())
 
-# ---------------------------------------------------------
-# 1. 페이지 레이아웃 & 테마 설정
-# ---------------------------------------------------------
+# =========================================================
+# 🎨 레이아웃 & 완벽 동기화 CSS 테마
+# =========================================================
 st.set_page_config(
     page_title=APP_TITLE,
     page_icon="🥗",
@@ -101,74 +91,98 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 세션 상태에 테마 모드 초기화
 if "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "dark"
 
-# 🎨 테마 모드별 변수 분기
+# 모드별 색상 정의
 if st.session_state["theme_mode"] == "dark":
     bg_main = "#121212"
     bg_card = "#1E1E1E"
-    text_main = "#F1F5F9"
-    text_sub = "#94A3B8"
-    border_color = "#333333"
-    input_bg = "#2A2A2A"
-    placeholder_color = "#71717A"
+    input_bg = "#2D2D2D"
+    text_color = "#FFFFFF"
+    text_sub = "#AAAAAA"
+    border_color = "#383838"
     active_tab = "#4ADE80"
 else:
-    bg_main = "#FFFFFF"
-    bg_card = "#F8FAFC"
-    text_main = "#0F172A"
-    text_sub = "#475569"
-    border_color = "#E2E8F0"
-    input_bg = "#F1F5F9"
-    placeholder_color = "#94A3B8"
+    bg_main = "#F8FAFC"
+    bg_card = "#FFFFFF"
+    input_bg = "#EDF2F7"
+    text_color = "#1A202C"
+    text_sub = "#4A5568"
+    border_color = "#CBD5E0"
     active_tab = "#2563EB"
 
 theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 배경 및 폰트 강제 적용 */
+/* 기본 배경 및 글로벌 텍스트 색상 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
-    color: {text_main} !important;
+    color: {text_color} !important;
 }}
 
-/* 사이드바 영역 배경 및 텍스트 강제 지정 */
+/* 사이드바 */
 [data-testid="stSidebar"], 
-[data-testid="stSidebar"] > div:first-child,
 section[data-testid="stSidebar"] {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
 }}
-
-[data-testid="stSidebar"] *, 
-[data-testid="stSidebar"] label, 
-[data-testid="stSidebar"] p,
-[data-testid="stSidebar"] span {{
-    color: {text_main} !important;
+[data-testid="stSidebar"] * {{
+    color: {text_color} !important;
 }}
 
-/* 기본 텍스트 색상 전체 강제 적용 */
-p, span, label, h1, h2, h3, h4, h5, h6, caption {{
-    color: {text_main} !important;
+/* 일반 텍스트 라벨 */
+p, span, label, h1, h2, h3, h4, h5, h6 {{
+    color: {text_color} !important;
 }}
 
-/* Metric 수치 박스 */
-div[data-testid="stMetric"] {{
+/* 🎯 [완벽 해결] 모든 입력창(텍스트, 숫합, 날짜 등) 통합 배경 & 글자색 지정 */
+div[data-baseweb="input"], 
+div[data-baseweb="base-input"],
+div[data-baseweb="select"] > div,
+.stTextInput > div > div,
+.stNumberInput > div > div {{
+    background-color: {input_bg} !important;
+    border: 1px solid {border_color} !important;
+    border-radius: 8px !important;
+}}
+
+/* 입력창 내부 실제 텍스트 및 힌트 문구(Placeholder) 색상 강제 고정 */
+input, textarea {{
+    background-color: transparent !important;
+    color: {text_color} !important;
+    -webkit-text-fill-color: {text_color} !important;
+}}
+
+input::placeholder, textarea::placeholder {{
+    color: {text_sub} !important;
+    -webkit-text-fill-color: {text_sub} !important;
+    opacity: 0.8 !important;
+}}
+
+/* 입력창 우측 버튼 및 아이콘 투명화 */
+div[data-baseweb="input"] button,
+div[data-baseweb="input"] svg,
+button[aria-label="Decrease value"],
+button[aria-label="Increase value"] {{
+    background-color: transparent !important;
+    color: {text_color} !important;
+    fill: {text_color} !important;
+}}
+
+/* 카드 및 박스 컴포넌트 */
+div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     background-color: {bg_card} !important;
     border: 1px solid {border_color} !important;
     border-radius: 10px;
-    padding: 12px;
 }}
 
-/* Tabs 상단 탭 버튼 */
+/* 탭 버튼 */
 .stTabs [data-baseweb="tab-list"] {{
     background-color: {bg_card} !important;
     border-radius: 8px;
-    padding: 4px;
 }}
 .stTabs [data-baseweb="tab"] p {{
     color: {text_sub} !important;
@@ -178,71 +192,17 @@ div[data-testid="stMetric"] {{
     font-weight: bold !important;
 }}
 
-/* 🔧 [완벽 해결] 모든 입력창 (텍스트, 날짜선택, 셀렉트박스 등) 배경 및 글자색 강제 적용 */
-div[data-baseweb="input"], 
-div[data-baseweb="base-input"],
-div[data-testid="stInputWithIcon"],
-div[data-baseweb="select"] > div {{
-    background-color: {input_bg} !important;
-    border: 1px solid {border_color} !important;
-    border-radius: 8px !important;
-}}
-
-/* 입력창 내부 실제 텍스트 및 Placeholder 색상 */
-div[data-baseweb="input"] input,
-div[data-baseweb="base-input"] input,
-textarea {{
-    background-color: transparent !important;
-    color: {text_main} !important;
-}}
-
-input::placeholder, textarea::placeholder {{
-    color: {placeholder_color} !important;
-    -webkit-text-fill-color: {placeholder_color} !important;
-}}
-
-div[data-baseweb="input"] input {{
-    -webkit-text-fill-color: {text_main} !important;
-}}
-
-/* 입력창 우측 아이콘 및 증감 버튼 레이어 투명 처리 */
-div[data-baseweb="input"] [data-baseweb="icon"],
-div[data-baseweb="input"] button,
-div[data-baseweb="input"] div[role="button"],
-button[aria-label="Decrease value"],
-button[aria-label="Increase value"] {{
-    background-color: transparent !important;
-    color: {text_main} !important;
-    fill: {text_main} !important;
-    border: none !important;
-}}
-
-/* 일반 버튼 스타일 */
+/* 기본 버튼 */
 .stButton > button {{
     border-radius: 8px !important;
     border: 1px solid {border_color} !important;
     background-color: {bg_card} !important;
-    color: {text_main} !important;
+    color: {text_color} !important;
 }}
-
-/* Primary 강조 버튼 */
 .stButton > button[kind="primary"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
     border: none !important;
-}}
-
-/* 접이식 박스 (Expander) */
-div[data-testid="stExpander"] {{
-    background-color: {bg_card} !important;
-    border: 1px solid {border_color} !important;
-    border-radius: 8px !important;
-}}
-
-/* 코드 및 서식 텍스트 */
-code {{
-    background-color: {input_bg} !important;
-    color: {text_main} !important;
 }}
 </style>
 """
@@ -254,18 +214,16 @@ cookie_manager = stx.CookieManager()
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
-# ---------------------------------------------------------
-# 🍪 쿠키 자동 로그인
-# ---------------------------------------------------------
+# 쿠키 자동 로그인
 saved_uid = cookie_manager.get(cookie="auth_uid")
 saved_email = cookie_manager.get(cookie="auth_email")
 
 if not st.session_state["user"] and saved_uid and saved_email:
     st.session_state["user"] = {"uid": saved_uid, "email": saved_email}
 
-# ---------------------------------------------------------
-# 📱 사이드바 설정
-# ---------------------------------------------------------
+# =========================================================
+# 📱 사이드바
+# =========================================================
 with st.sidebar:
     st.markdown("### ⚙️ 설정")
     
@@ -326,9 +284,9 @@ with st.sidebar:
     
     st.image(buf.getvalue(), caption="QR코드 스캔", width=140)
 
-# ---------------------------------------------------------
-# 2. 로그인 / 회원가입 화면
-# ---------------------------------------------------------
+# =========================================================
+# 🔑 로그인 / 회원가입 화면
+# =========================================================
 if not st.session_state["user"]:
     top_col1, top_col2 = st.columns([4, 1.2])
     with top_col1:
@@ -390,9 +348,9 @@ if not st.session_state["user"]:
 
     st.stop()
 
-# ---------------------------------------------------------
-# 3. 메인 서비스 화면
-# ---------------------------------------------------------
+# =========================================================
+# 🏠 메인 화면
+# =========================================================
 header_col1, header_col2, header_col3 = st.columns([2.5, 1.2, 1.2])
 with header_col1:
     st.markdown(f"<h3 style='margin:0;'>{APP_TITLE}</h3>", unsafe_allow_html=True)
