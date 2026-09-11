@@ -42,7 +42,6 @@ db = firestore.client()
 # 🤖 AI 요청 재시도(Retry) 및 예외 처리 함수
 # =========================================================
 def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
-    """API 한도 초과(429) 발생 시 자동 재시도하는 함수"""
     if not api_key:
         raise ValueError("API 키가 설정되지 않았습니다. 사이드바에서 Gemini API 키를 입력해 주세요.")
         
@@ -55,10 +54,9 @@ def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
             return response
         except Exception as e:
             err_msg = str(e)
-            # 429 한도 초과 또는 ResourceExhausted 오류 시 재시도
             if ("429" in err_msg or "ResourceExhausted" in err_msg or "quota" in err_msg.lower()) and attempt < max_retries - 1:
-                wait_time = (attempt + 1) * 3  # 3초, 6초 지연 후 재시도
-                st.warning(f"⏳ 사용량이 많아 요청이 대기 중입니다... ({attempt + 1}/{max_retries} 재시도 중, {wait_time}초 후 진행)")
+                wait_time = (attempt + 1) * 3
+                st.warning(f"⏳ 대기 중입니다... ({attempt + 1}/{max_retries} 재시도, {wait_time}초 지연)")
                 time.sleep(wait_time)
             else:
                 raise e
@@ -92,14 +90,71 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 및 쿠키 매니저 설정
+# 1. 페이지 레이아웃 및 커스텀 디자인 CSS
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="AI 식단 분석 코치",
+    page_title="NutriCare - 스마트 영양 관리",
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
+
+# 🎨 App-like 커스텀 스타일 정의
+st.markdown("""
+<style>
+    /* 메인 컨테이너 패딩 조절 */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 3rem;
+        max-width: 680px;
+    }
+    
+    /* 카드 스타일 컴포넌트 */
+    .metric-card {
+        background: #F8FAFC;
+        border: 1px solid #E2E8F0;
+        border-radius: 12px;
+        padding: 14px 16px;
+        text-align: center;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .metric-label {
+        font-size: 0.82rem;
+        color: #64748B;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+    .metric-value {
+        font-size: 1.25rem;
+        color: #0F172A;
+        font-weight: 700;
+    }
+    
+    /* 뱃지 라이크 텍스트 */
+    .meal-badge {
+        display: inline-block;
+        background: #EFF6FF;
+        color: #2563EB;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+    }
+    
+    /* 버튼 둥글게 스타일 보완 */
+    div.stButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        height: 2.75rem;
+    }
+    
+    /* 헤더 폰트 커스텀 */
+    h1, h2, h3 {
+        letter-spacing: -0.02em;
+    }
+</style>
+""", unsafe_allow_html=unsafe_allow_ok=True)
 
 cookie_manager = stx.CookieManager()
 
@@ -107,7 +162,7 @@ if "user" not in st.session_state:
     st.session_state["user"] = None
 
 # ---------------------------------------------------------
-# 🍪 쿠키를 이용한 자동 로그인 체크
+# 🍪 쿠키 자동 로그인
 # ---------------------------------------------------------
 saved_uid = cookie_manager.get(cookie="auth_uid")
 saved_email = cookie_manager.get(cookie="auth_email")
@@ -116,37 +171,33 @@ if not st.session_state["user"] and saved_uid and saved_email:
     st.session_state["user"] = {"uid": saved_uid, "email": saved_email}
 
 # ---------------------------------------------------------
-# 📱 사이드바 (개인 API 키 + 목표 설정 + 물 트래커 + QR)
+# 📱 사이드바 설정
 # ---------------------------------------------------------
 with st.sidebar:
-    st.header("⚙️ 개인 설정 & 트래커")
+    st.markdown("### ⚙️ 환경 설정")
     
-    # 🔑 개인 Gemini API 키 입력받기 (선택)
     user_api_key = st.text_input(
-        "🔑 개인 Gemini API 키 (선택)", 
+        "🔑 개인 Gemini API 키", 
         type="password",
-        help="서버 공용 API 한도가 초과될 경우, 본인의 Google AI Studio API 키를 입력하면 제한 없이 사용 가능합니다."
+        help="서버 기본 제한을 우회하려면 본인의 API 키를 입력하세요."
     )
     
-    # 사용할 API 키 결정 (개인 키 우선 -> 없으면 기본 서버 키)
     active_api_key = user_api_key.strip() if user_api_key.strip() else DEFAULT_API_KEY
     
     if user_api_key.strip():
-        st.caption("✅ 개인 API 키가 적용되었습니다.")
+        st.caption("✅ 개인 API 키 적용 중")
     elif DEFAULT_API_KEY:
-        st.caption("ℹ️ 서버 공용 API 키를 사용 중입니다.")
+        st.caption("ℹ️ 서버 공유 API 키 적용 중")
     else:
-        st.warning("⚠️ 등록된 API 키가 없습니다. API 키를 입력해 주세요.")
+        st.warning("⚠️ 등록된 API 키가 없습니다.")
 
     st.divider()
 
-    # 목표 칼로리 설정
     target_calories = st.number_input("🎯 하루 목표 칼로리 (kcal)", min_value=1000, max_value=5000, value=2000, step=100)
     
     st.divider()
     
-    # 💧 물 섭취량 트래커
-    st.header("💧 오늘 물 섭취량")
+    st.markdown("### 💧 수분 섭취 트래커")
     today_str = get_kst_now().strftime("%Y-%m-%d")
     water_key = f"water_{today_str}"
     
@@ -155,17 +206,17 @@ with st.sidebar:
         
     col_w1, col_w2 = st.columns(2)
     with col_w1:
-        if st.button("➕ 250ml 추가"):
+        if st.button("➕ 250ml", use_container_width=True):
             st.session_state[water_key] += 250
     with col_w2:
-        if st.button("🔄 리셋"):
+        if st.button("🔄 초기화", use_container_width=True):
             st.session_state[water_key] = 0
             
-    st.write(f"현재 섭취량: **{st.session_state[water_key]} ml** / 목표 2000 ml")
+    st.caption(f"현재: **{st.session_state[water_key]} ml** / 목표 2,000 ml")
     st.progress(min(st.session_state[water_key] / 2000.0, 1.0))
 
     st.divider()
-    st.header("📱 모바일 접속 QR")
+    st.markdown("### 📱 모바일 접속")
     
     try:
         host = st.context.headers.get("host", "")
@@ -173,29 +224,30 @@ with st.sidebar:
     except Exception:
         current_url = "https://share.streamlit.io"
 
-    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr = qrcode.QRCode(version=1, box_size=6, border=2)
     qr.add_data(current_url)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white")
+    img = qr.make_image(fill_color="#0F172A", back_color="white")
     buf = io.BytesIO()
     img.save(buf, format="PNG")
     
-    st.image(buf.getvalue(), caption="스마트폰 카메라로 스캔하세요", width=200)
+    st.image(buf.getvalue(), caption="카메라로 스캔하여 연결", width=160)
 
 # ---------------------------------------------------------
-# 2. 로그인 / 회원가입 / 게스트 입장 화면
+# 2. 로그인 / 회원가입 / 게스트
 # ---------------------------------------------------------
 if not st.session_state["user"]:
-    st.title("🥗 AI 식단 분석 코치")
-    st.subheader("로그인 후 식단을 기록하거나, 게스트로 체험해 보세요!")
+    st.markdown("<h2 style='text-align: center; font-weight: 800; margin-bottom: 0px;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.95rem; margin-bottom: 2rem;'>AI 기반 스마트 식단 분석 & 영양 케어 플랫폼</p>", unsafe_allow_html=True)
 
     auth_tab1, auth_tab2 = st.tabs(["🔑 로그인", "📝 회원가입"])
 
     with auth_tab1:
-        login_email = st.text_input("이메일", key="login_email")
+        login_email = st.text_input("이메일 계정", key="login_email")
         login_password = st.text_input("비밀번호", type="password", key="login_pwd")
-        remember_me = st.checkbox("자동 로그인 (로그인 상태 유지)", value=True)
+        remember_me = st.checkbox("로그인 상태 유지", value=True)
         
+        st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
         col_login, col_guest = st.columns(2)
         with col_login:
             if st.button("로그인", type="primary", use_container_width=True):
@@ -208,51 +260,52 @@ if not st.session_state["user"]:
                         cookie_manager.set("auth_uid", user.uid, expires_at=expires_at)
                         cookie_manager.set("auth_email", user.email, expires_at=expires_at)
                     
-                    st.success(f"환영합니다, {user.email}님!")
                     st.rerun()
                 except Exception:
-                    st.error("로그인 실패: 이메일 또는 비밀번호를 확인하세요.")
+                    st.error("로그인 정보가 올바르지 않습니다.")
         
         with col_guest:
-            if st.button("👤 게스트로 이용하기", use_container_width=True):
+            if st.button("👤 게스트로 체험", use_container_width=True):
                 st.session_state["user"] = "guest"
                 st.rerun()
 
     with auth_tab2:
-        signup_email = st.text_input("이메일 등록", key="signup_email")
+        signup_email = st.text_input("이메일 주소", key="signup_email")
         signup_password = st.text_input("비밀번호 (6자리 이상)", type="password", key="signup_pwd")
-        if st.button("회원가입 완료", use_container_width=True):
+        if st.button("계정 만들기", use_container_width=True):
             try:
                 user = auth.create_user(email=signup_email, password=signup_password)
-                st.success("회원가입 성공! 로그인 탭에서 로그인해 주세요.")
+                st.success("회원가입이 완료되었습니다. 로그인 탭에서 시작하세요.")
             except Exception as e:
                 st.error(f"회원가입 실패: {e}")
 
     st.stop()
 
 # ---------------------------------------------------------
-# 3. 메인 서비스 화면
+# 3. 메인 서비스 화면 (App 헤더 컴포넌트)
 # ---------------------------------------------------------
-st.title("🥗 AI 식단 분석 코치")
+header_col1, header_col2 = st.columns([3, 1])
+with header_col1:
+    st.markdown("<h2 style='margin:0; font-weight:800;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
+    if st.session_state["user"] == "guest":
+        st.caption("⚠️ 게스트 모드 (기록 저장이 제한됩니다)")
+    else:
+        st.caption(f"👤 {st.session_state['user']['email']}")
 
-if st.session_state["user"] == "guest":
-    st.warning("⚠️ 현재 **게스트 모드**로 이용 중입니다. 식단 기록 및 종합 분석 기능이 저장되지 않습니다.")
-    if st.button("🔑 로그인/회원가입 하러 가기", type="secondary"):
-        st.session_state["user"] = None
-        st.rerun()
-else:
-    st.caption(f"👤 로그인 계정: {st.session_state['user']['email']}")
-    if st.button("🚪 로그아웃", type="secondary"):
+with header_col2:
+    if st.button("로그아웃", type="secondary", use_container_width=True):
         st.session_state["user"] = None
         cookie_manager.delete("auth_uid")
         cookie_manager.delete("auth_email")
         st.rerun()
 
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리", "📊 일일 요약 분석", "📈 주간 추이 시각화"])
+st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
 
-# --- TAB 1: 식단 분석 및 저장 ---
+main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 식단 분석", "📂 식단 기록", "📊 하루 리포트", "📈 주간 추이"])
+
+# --- TAB 1: 식단 분석 ---
 with main_tab1:
-    sub_tab1, sub_tab2 = st.tabs(["📸 카메라 촬영", "🖼️ 앨범에서 선택"])
+    sub_tab1, sub_tab2 = st.tabs(["📸 카메라 촬영", "🖼️ 사진 업로드"])
     img_file = None
 
     with sub_tab1:
@@ -261,15 +314,15 @@ with main_tab1:
             img_file = camera_photo
 
     with sub_tab2:
-        uploaded_photo = st.file_uploader("음식 이미지 파일 선택", type=["jpg", "jpeg", "png"])
+        uploaded_photo = st.file_uploader("음식 이미지 선택", type=["jpg", "jpeg", "png"])
         if uploaded_photo:
             img_file = uploaded_photo
 
     if img_file:
         image = Image.open(img_file)
-        st.image(image, caption="분석 대상 이미지", use_container_width=True)
+        st.image(image, caption="분석 대상 사진", use_container_width=True)
 
-        btn_label = "🔥 AI 영양 분석 실행 (저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
+        btn_label = "🔥 영양 분석 실행" if st.session_state["user"] == "guest" else "🔥 영양 분석 & 자동 저장"
         
         if st.button(btn_label, type="primary", use_container_width=True):
             now_kst = get_kst_now()
@@ -284,7 +337,7 @@ with main_tab1:
             else:
                 meal_type = "야식/간식"
 
-            with st.spinner("AI가 식단을 분석 중입니다..."):
+            with st.spinner("AI가 음식 및 영양 성분을 분석 중입니다..."):
                 try:
                     prompt = f"""
                     당신은 전문 영양 코치입니다. 전달받은 이미지는 사용자가 **{meal_type}**으로 제출한 식단 사진입니다.
@@ -304,7 +357,6 @@ with main_tab1:
                     }}
                     """
 
-                    # 재시도 로직이 적용된 함수 호출
                     response = generate_content_with_retry(
                         api_key=active_api_key,
                         model_name='gemini-3.6-flash',
@@ -333,74 +385,71 @@ with main_tab1:
                             "created_at": firestore.SERVER_TIMESTAMP
                         }
                         db.collection("meals").add(doc_data)
-                        st.success("분석 완료 및 개인 기록 저장 성공!")
-                    else:
-                        st.success("분석 완료! (게스트 모드이므로 저장되지 않았습니다)")
 
-                    st.subheader(f"📌 {data['meal_type']} (총 {data['total_calories']} kcal)")
+                    # 메트릭 커스텀 위젯 시각화
+                    st.markdown(f"<span class='meal-badge'>{data['meal_type']}</span>", unsafe_allow_html=True)
+                    st.markdown(f"### 총 {data['total_calories']} kcal")
 
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("탄수화물", f"{data['carbs_g']}g")
-                    col2.metric("단백질", f"{data['protein_g']}g")
-                    col3.metric("지방", f"{data['fat_g']}g")
+                    m_col1, m_col2, m_col3 = st.columns(3)
+                    with m_col1:
+                        st.markdown(f"<div class='metric-card'><div class='metric-label'>탄수화물</div><div class='metric-value'>{data['carbs_g']}g</div></div>", unsafe_allow_html=True)
+                    with m_col2:
+                        st.markdown(f"<div class='metric-card'><div class='metric-label'>단백질</div><div class='metric-value'>{data['protein_g']}g</div></div>", unsafe_allow_html=True)
+                    with m_col3:
+                        st.markdown(f"<div class='metric-card'><div class='metric-label'>지방</div><div class='metric-value'>{data['fat_g']}g</div></div>", unsafe_allow_html=True)
 
-                    st.divider()
-                    st.markdown("### 🍱 항목별 상세 정보")
+                    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
+                    st.markdown("##### 🍱 음식 상세 구성을 확인하세요")
                     for food in data['foods']:
-                        with st.expander(f"**{food['name']}** ({food['portion']}) - {food['calories']} kcal"):
-                            st.write(f"- 추정 칼로리: {food['calories']} kcal")
+                        with st.expander(f"**{food['name']}** ({food['portion']})"):
+                            st.write(f"• 예상 칼로리: **{food['calories']} kcal**")
 
-                    st.divider()
-                    st.markdown("### 💡 AI 영양 코치의 조언")
+                    st.markdown("##### 💡 영양 코칭")
                     st.info(data['health_advice'])
 
                 except Exception as e:
                     err_str = str(e)
                     if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
-                        st.error("🚨 서버 무료 API 이용 한도가 일시적으로 초과되었습니다.")
-                        st.info("💡 **해결 방법**: 왼쪽 사이드바의 **'🔑 개인 Gemini API 키'** 입력란에 본인의 API 키를 입력하시면 즉시 제한 없이 이용하실 수 있습니다!")
+                        st.error("🚨 사용 요청이 많아 대기 시간이 발생했습니다.")
+                        st.info("💡 사이드바에 개인 API 키를 입력하시면 대기 없이 이용할 수 있습니다.")
                     else:
                         st.error(f"분석 오류 발생: {e}")
 
 # --- TAB 2: 과거 내 식단 히스토리 ---
 with main_tab2:
     if st.session_state["user"] == "guest":
-        st.info("🔒 게스트 모드에서는 식단 히스토리가 제공되지 않습니다.")
+        st.info("🔒 게스트 모드에서는 히스토리 기능을 이용할 수 없습니다.")
     else:
-        st.subheader("🗓️ 내 저장된 식단 히스토리")
-        
         meals_ref = db.collection("meals")
         query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
 
         if not query:
-            st.info("저장된 식단 기록이 없습니다. 사진을 올려 식단을 기록해 보세요!")
+            st.info("저장된 식단 기록이 없습니다.")
         else:
             meal_list = [doc.to_dict() for doc in query]
             meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
 
             for item in meal_list:
-                with st.expander(f"📅 {item.get('date')} [{item.get('meal_type')}] - {item.get('total_calories')} kcal"):
-                    st.write(f"**시간:** {item.get('time')}")
-                    st.write(f"**영양성분:** 탄수화물 {item.get('carbs_g')}g | 단백질 {item.get('protein_g')}g | 지방 {item.get('fat_g')}g")
-                    st.write("**상세 음식:**")
+                with st.expander(f"{item.get('date')} | {item.get('meal_type')} ({item.get('total_calories')} kcal)"):
+                    st.caption(f"기록 시간: {item.get('time')}")
+                    st.write(f"탄수화물 **{item.get('carbs_g')}g** · 단백질 **{item.get('protein_g')}g** · 지방 **{item.get('fat_g')}g**")
+                    st.markdown("---")
                     for f in item.get("foods", []):
-                        st.write(f"- {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
-                    st.caption(f"💡 조언: {item.get('health_advice')}")
+                        st.write(f"• {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
+                    st.caption(f"💬 {item.get('health_advice')}")
 
 # --- TAB 3: 하루 종합 분석 보고서 ---
 with main_tab3:
     if st.session_state["user"] == "guest":
-        st.info("🔒 게스트 모드에서는 일일 요약 분석 보고서가 제공되지 않습니다.")
+        st.info("🔒 게스트 모드에서는 하루 보고서 기능을 이용할 수 없습니다.")
     else:
-        st.subheader("📊 하루 식단 종합 요약 보고서")
-        
-        selected_date = st.date_input("조회할 날짜를 선택하세요", get_kst_now().date()).strftime("%Y-%m-%d")
+        selected_date = st.date_input("조회 날짜", get_kst_now().date()).strftime("%Y-%m-%d")
         
         meals_ref = db.collection("meals")
         query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).where("date", "==", selected_date).get()
         
         if not query:
-            st.warning(f"선택하신 날짜({selected_date})에 등록된 식단 기록이 없습니다.")
+            st.warning(f"{selected_date}에 기록된 식단이 없습니다.")
         else:
             daily_meals = [doc.to_dict() for doc in query]
             daily_meals.sort(key=lambda x: x.get("time", ""))
@@ -411,35 +460,37 @@ with main_tab3:
             total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
             
             progress_ratio = min(total_cal / float(target_calories), 1.0)
-            st.markdown(f"### 📈 {selected_date} 영양 섭취 총계")
             
             if total_cal > target_calories * 1.1:
-                st.error(f"⚠️ 목표 칼로리({target_calories} kcal)를 초과했습니다! ({total_cal} / {target_calories} kcal)")
+                st.error(f"⚠️ 목표 대비 초과 섭취 ({total_cal} / {target_calories} kcal)")
             elif total_cal >= target_calories * 0.8:
-                st.success(f"✅ 목표 칼로리에 적절히 도달했습니다! ({total_cal} / {target_calories} kcal)")
+                st.success(f"✅ 권장 목표 달성 ({total_cal} / {target_calories} kcal)")
             else:
-                st.info(f"💡 목표 칼로리보다 적게 섭취하셨습니다. ({total_cal} / {target_calories} kcal)")
+                st.info(f"💡 목표치 미달 섭취 ({total_cal} / {target_calories} kcal)")
                 
             st.progress(progress_ratio)
             
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("총 칼로리", f"{total_cal} kcal")
-            col2.metric("총 탄수화물", f"{total_carbs} g")
-            col3.metric("총 단백질", f"{total_protein} g")
-            col4.metric("총 지방", f"{total_fat} g")
+            d_col1, d_col2, d_col3, d_col4 = st.columns(4)
+            with d_col1:
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>총 칼로리</div><div class='metric-value'>{total_cal}</div></div>", unsafe_allow_html=True)
+            with d_col2:
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>탄수화물</div><div class='metric-value'>{total_carbs}g</div></div>", unsafe_allow_html=True)
+            with d_col3:
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>단백질</div><div class='metric-value'>{total_protein}g</div></div>", unsafe_allow_html=True)
+            with d_col4:
+                st.markdown(f"<div class='metric-card'><div class='metric-label'>지방</div><div class='metric-value'>{total_fat}g</div></div>", unsafe_allow_html=True)
             
-            st.divider()
-            st.markdown("### 🍽️ 오늘 먹은 식단 타임라인")
+            st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
             summary_text_list = []
             for m in daily_meals:
                 foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
-                st.write(f"- **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
-                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} (칼로리: {m.get('total_calories')}kcal)")
+                st.write(f"• **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
+                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} ({m.get('total_calories')}kcal)")
             
-            st.divider()
+            st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             
-            if st.button("🤖 AI 하루 식단 종합 총평 받기", type="primary", use_container_width=True):
-                with st.spinner("하루 식단을 종합 분석하여 보고서를 작성 중입니다..."):
+            if st.button("🤖 종합 영양 리포트 생성", type="primary", use_container_width=True):
+                with st.spinner("종합 영양 상태 평가를 작성 중입니다..."):
                     try:
                         daily_summary = "\n".join(summary_text_list)
                         prompt = f"""
@@ -453,38 +504,32 @@ with main_tab3:
                         위 데이터를 바탕으로 종합 평가 보고서를 작성해 주세요 (1. 종합 평가, 2. 잘한 점, 3. 개선 가이드, 4. 내일 식단 팁).
                         """
                         
-                        # 재시도 로직 적용
                         response = generate_content_with_retry(
                             api_key=active_api_key,
                             model_name='gemini-3.6-flash',
                             contents=prompt
                         )
                         st.session_state["last_feedback"] = response.text
-                        st.markdown("### 📋 AI 영양 코치의 하루 종합 피드백")
+                        st.markdown("##### 📋 일일 영양 리포트 결과")
                         st.info(response.text)
                     except Exception as e:
-                        err_str = str(e)
-                        if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
-                            st.error("🚨 서버 무료 API 이용 한도가 일시적으로 초과되었습니다.")
-                            st.info("💡 사이드바의 **'🔑 개인 Gemini API 키'**란에 개인 키를 입력하시면 바로 사용 가능합니다.")
-                        else:
-                            st.error(f"종합 보고서 생성 중 오류 발생: {e}")
+                        st.error(f"보고서 생성 실패: {e}")
 
             if "last_feedback" in st.session_state:
                 pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
                 st.download_button(
-                    label="📄 일일 리포트 PDF 다운로드",
+                    label="📄 PDF 리포트 파일 내려받기",
                     data=pdf_data,
-                    file_name=f"diet_report_{selected_date}.pdf",
+                    file_name=f"nutricare_report_{selected_date}.pdf",
                     mime="application/pdf"
                 )
 
 # --- TAB 4: 주간 추이 시각화 ---
 with main_tab4:
     if st.session_state["user"] == "guest":
-        st.info("🔒 게스트 모드에서는 주간 시각화 기능이 제공되지 않습니다.")
+        st.info("🔒 게스트 모드에서는 추이 시각화 기능을 이용할 수 없습니다.")
     else:
-        st.subheader("📈 최근 식단 칼로리 변화 추이")
+        st.markdown("##### 📈 최근 섭취 칼로리 추이")
         
         meals_ref = db.collection("meals")
         query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
@@ -502,6 +547,5 @@ with main_tab4:
             chart_data = {d: date_cal_map[d] for d in sorted_dates}
             
             st.bar_chart(chart_data)
-            st.caption("최근 등록된 날짜별 총 칼로리(kcal) 그래프입니다.")
         else:
-            st.info("저장된 데이터가 없어 그래프를 표시할 수 없습니다.")
+            st.info("저장된 일별 데이터가 부족합니다.")
