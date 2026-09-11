@@ -1,7 +1,7 @@
 import os
 import io
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import streamlit as st
 import qrcode
 from PIL import Image
@@ -10,6 +10,15 @@ import google.generativeai as genai
 # Firebase Admin SDK
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+
+# =========================================================
+# 🔑 KST (한국 표준시 UTC+9) 시간 함수 설정
+# =========================================================
+KST = timezone(timedelta(hours=9))
+
+def get_kst_now():
+    """현재 한국 시간을 반환하는 함수"""
+    return datetime.now(KST)
 
 # =========================================================
 # 🔑 API KEY & Firebase 초기화
@@ -143,7 +152,10 @@ with main_tab1:
         btn_label = "🔥 AI 영양 분석 실행 (저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
         
         if st.button(btn_label, type="primary", use_container_width=True):
-            current_hour = datetime.now().hour
+            # KST 시간 기준으로 시간대 판단
+            now_kst = get_kst_now()
+            current_hour = now_kst.hour
+            
             if 5 <= current_hour < 10:
                 meal_type = "아침 식단"
             elif 10 <= current_hour < 16:
@@ -186,11 +198,10 @@ with main_tab1:
                     data = json.loads(json_str)
 
                     if st.session_state["user"] != "guest":
-                        now = datetime.now()
                         doc_data = {
                             "uid": st.session_state["user"]["uid"],
-                            "date": now.strftime("%Y-%m-%d"),
-                            "time": now.strftime("%H:%M:%S"),
+                            "date": now_kst.strftime("%Y-%m-%d"),
+                            "time": now_kst.strftime("%H:%M:%S"),
                             "meal_type": data['meal_type'],
                             "total_calories": data['total_calories'],
                             "carbs_g": data['carbs_g'],
@@ -257,11 +268,10 @@ with main_tab3:
     else:
         st.subheader("📊 하루 식단 종합 요약 보고서")
         
-        # 조회 날짜 선택 (기본값: 오늘)
-        selected_date = st.date_input("조회할 날짜를 선택하세요", datetime.now()).strftime("%Y-%m-%d")
+        # KST 한국 날짜 기준으로 기본값 설정
+        selected_date = st.date_input("조회할 날짜를 선택하세요", get_kst_now().date()).strftime("%Y-%m-%d")
         
         meals_ref = db.collection("meals")
-        # 해당 유저의 해당 날짜 식단 가져오기
         query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).where("date", "==", selected_date).get()
         
         if not query:
@@ -270,13 +280,11 @@ with main_tab3:
             daily_meals = [doc.to_dict() for doc in query]
             daily_meals.sort(key=lambda x: x.get("time", ""))
             
-            # 하루 합계 계산
             total_cal = sum([m.get("total_calories", 0) for m in daily_meals])
             total_carbs = sum([m.get("carbs_g", 0) for m in daily_meals])
             total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
             total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
             
-            # 영양 통계 카드 표시
             st.markdown(f"### 📈 {selected_date} 영양 섭취 총계")
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("총 칼로리", f"{total_cal} kcal")
@@ -286,7 +294,6 @@ with main_tab3:
             
             st.divider()
             
-            # 먹은 식단 목록 요약
             st.markdown("### 🍽️ 오늘 먹은 식단 타임라인")
             summary_text_list = []
             for m in daily_meals:
@@ -296,7 +303,6 @@ with main_tab3:
             
             st.divider()
             
-            # AI 종합 총평 리포트 생성
             if st.button("🤖 AI 하루 식단 종합 총평 받기", type="primary", use_container_width=True):
                 with st.spinner("하루 식단을 종합 분석하여 보고서를 작성 중입니다..."):
                     try:
