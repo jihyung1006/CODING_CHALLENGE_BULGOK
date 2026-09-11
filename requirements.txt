@@ -5,3 +5,5 @@ qrcode
 firebase-admin
 extra-streamlit-components
 fpdf2
+streamlit-option-menu
+plotly
