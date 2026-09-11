@@ -9,6 +9,9 @@ from PIL import Image
 import google.generativeai as genai
 import extra_streamlit_components as stx
 from fpdf import FPDF
+from streamlit_option_menu import option_menu
+import plotly.graph_objects as go
+import plotly.express as px
 
 # Firebase Admin SDK
 import firebase_admin
@@ -90,68 +93,80 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 및 커스텀 디자인 CSS
+# 1. 페이지 레이아웃 및 프리미엄 CSS
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="NutriCare - 스마트 영양 관리",
+    page_title="NutriCare Pro - AI 영양 케어 플랫폼",
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# 🎨 App-like 커스텀 스타일 정의
 st.markdown("""
 <style>
-    /* 메인 컨테이너 패딩 조절 */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    
+    * {
+        font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important;
+    }
+
     .block-container {
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        max-width: 680px;
+        padding-top: 1.5rem;
+        padding-bottom: 4rem;
+        max-width: 720px;
     }
     
-    /* 카드 스타일 컴포넌트 */
-    .metric-card {
-        background: #F8FAFC;
+    /* 카드 컴포넌트 */
+    .glass-card {
+        background: #FFFFFF;
         border: 1px solid #E2E8F0;
-        border-radius: 12px;
-        padding: 14px 16px;
-        text-align: center;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+        margin-bottom: 16px;
     }
-    .metric-label {
-        font-size: 0.82rem;
+    
+    .metric-box {
+        background: #F8FAFC;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        border: 1px solid #EDF2F7;
+    }
+    .metric-title {
+        font-size: 0.78rem;
         color: #64748B;
         font-weight: 600;
-        margin-bottom: 4px;
     }
     .metric-value {
-        font-size: 1.25rem;
+        font-size: 1.2rem;
         color: #0F172A;
         font-weight: 700;
+        margin-top: 2px;
     }
     
-    /* 뱃지 스타일 */
-    .meal-badge {
-        display: inline-block;
-        background: #EFF6FF;
-        color: #2563EB;
+    /* 사용자 지정 태그 */
+    .meal-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 0.8rem;
         font-weight: 600;
-        padding: 4px 10px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        margin-bottom: 8px;
+        background-color: #EEF2FF;
+        color: #4F46E5;
+        margin-bottom: 10px;
     }
-    
-    /* 버튼 둥글게 스타일 보완 */
+
+    /* 버튼 스타일 override */
     div.stButton > button {
-        border-radius: 10px;
-        font-weight: 600;
-        height: 2.75rem;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease;
     }
     
-    /* 헤더 폰트 커스텀 */
-    h1, h2, h3 {
-        letter-spacing: -0.02em;
+    .stProgress > div > div > div > div {
+        background-image: linear-gradient(to right, #6366F1 , #3B82F6);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -174,7 +189,7 @@ if not st.session_state["user"] and saved_uid and saved_email:
 # 📱 사이드바 설정
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚙️ 환경 설정")
+    st.markdown("### ⚙️ 설정 & 환경변수")
     
     user_api_key = st.text_input(
         "🔑 개인 Gemini API 키", 
@@ -216,7 +231,7 @@ with st.sidebar:
     st.progress(min(st.session_state[water_key] / 2000.0, 1.0))
 
     st.divider()
-    st.markdown("### 📱 모바일 접속")
+    st.markdown("### 📱 모바일 접속 QR")
     
     try:
         host = st.context.headers.get("host", "")
@@ -237,8 +252,12 @@ with st.sidebar:
 # 2. 로그인 / 회원가입 / 게스트
 # ---------------------------------------------------------
 if not st.session_state["user"]:
-    st.markdown("<h2 style='text-align: center; font-weight: 800; margin-bottom: 0px;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.95rem; margin-bottom: 2rem;'>AI 기반 스마트 식단 분석 & 영양 케어 플랫폼</p>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style='text-align: center; padding: 2rem 0 1rem 0;'>
+            <h1 style='font-size: 2.2rem; font-weight: 800; color: #1E293B; margin-bottom: 8px;'>🥗 NutriCare Pro</h1>
+            <p style='color: #64748B; font-size: 0.95rem;'>AI 기반 스마트 식단 분석 & 영양 케어 플랫폼</p>
+        </div>
+    """, unsafe_allow_html=True)
 
     auth_tab1, auth_tab2 = st.tabs(["🔑 로그인", "📝 회원가입"])
 
@@ -265,7 +284,7 @@ if not st.session_state["user"]:
                     st.error("로그인 정보가 올바르지 않습니다.")
         
         with col_guest:
-            if st.button("👤 게스트로 체험", use_container_width=True):
+            if st.button("👤 게스트 체험", use_container_width=True):
                 st.session_state["user"] = "guest"
                 st.rerun()
 
@@ -282,29 +301,43 @@ if not st.session_state["user"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 3. 메인 서비스 화면
+# 3. 메인 Header & 모던 메뉴바 (option_menu 사용)
 # ---------------------------------------------------------
-header_col1, header_col2 = st.columns([3, 1])
-with header_col1:
-    st.markdown("<h2 style='margin:0; font-weight:800;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
+h_col1, h_col2 = st.columns([3, 1])
+with h_col1:
+    st.markdown("<h2 style='margin:0; font-weight:800; color:#0F172A;'>🥗 NutriCare Pro</h2>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
         st.caption("⚠️ 게스트 모드 (기록 저장이 제한됩니다)")
     else:
         st.caption(f"👤 {st.session_state['user']['email']}")
 
-with header_col2:
+with h_col2:
     if st.button("로그아웃", type="secondary", use_container_width=True):
         st.session_state["user"] = None
         cookie_manager.delete("auth_uid")
         cookie_manager.delete("auth_email")
         st.rerun()
 
-st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+# 프리미엄 네비게이션 바
+selected_tab = option_menu(
+    menu_title=None,
+    options=["식단 분석", "식단 기록", "하루 리포트", "주간 추이"],
+    icons=["camera", "journal-text", "pie-chart", "graph-up-arrow"],
+    default_index=0,
+    orientation="horizontal",
+    styles={
+        "container": {"padding": "0!important", "background-color": "#F8FAFC", "border-radius": "12px", "margin-top": "10px"},
+        "icon": {"color": "#64748B", "font-size": "14px"},
+        "nav-link": {"font-size": "13px", "text-align": "center", "margin": "0px", "--hover-color": "#F1F5F9", "font-weight": "600"},
+        "nav-link-selected": {"background-color": "#4F46E5", "color": "white", "font-weight": "700"},
+    }
+)
 
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 식단 분석", "📂 식단 기록", "📊 하루 리포트", "📈 주간 추이"])
-
-# --- TAB 1: 식단 분석 ---
-with main_tab1:
+# ---------------------------------------------------------
+# TAB 1: 식단 분석
+# ---------------------------------------------------------
+if selected_tab == "식단 분석":
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     sub_tab1, sub_tab2 = st.tabs(["📸 카메라 촬영", "🖼️ 사진 업로드"])
     img_file = None
 
@@ -386,24 +419,34 @@ with main_tab1:
                         }
                         db.collection("meals").add(doc_data)
 
-                    st.markdown(f"<span class='meal-badge'>{data['meal_type']}</span>", unsafe_allow_html=True)
-                    st.markdown(f"### 총 {data['total_calories']} kcal")
+                    # 고급 시각화 카드
+                    st.markdown(f"<div class='meal-chip'>{data['meal_type']}</div>", unsafe_allow_html=True)
+                    st.markdown(f"<h3 style='margin-bottom:15px;'>총 {data['total_calories']} kcal</h3>", unsafe_allow_html=True)
 
                     m_col1, m_col2, m_col3 = st.columns(3)
                     with m_col1:
-                        st.markdown(f"<div class='metric-card'><div class='metric-label'>탄수화물</div><div class='metric-value'>{data['carbs_g']}g</div></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-box'><div class='metric-title'>탄수화물</div><div class='metric-value'>{data['carbs_g']}g</div></div>", unsafe_allow_html=True)
                     with m_col2:
-                        st.markdown(f"<div class='metric-card'><div class='metric-label'>단백질</div><div class='metric-value'>{data['protein_g']}g</div></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-box'><div class='metric-title'>단백질</div><div class='metric-value'>{data['protein_g']}g</div></div>", unsafe_allow_html=True)
                     with m_col3:
-                        st.markdown(f"<div class='metric-card'><div class='metric-label'>지방</div><div class='metric-value'>{data['fat_g']}g</div></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='metric-box'><div class='metric-title'>지방</div><div class='metric-value'>{data['fat_g']}g</div></div>", unsafe_allow_html=True)
 
-                    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
-                    st.markdown("##### 🍱 음식 상세 구성을 확인하세요")
+                    # Plotly 영양소 파이 차트
+                    fig = px.pie(
+                        names=['탄수화물', '단백질', '지방'],
+                        values=[data['carbs_g']*4, data['protein_g']*4, data['fat_g']*9],
+                        hole=0.6,
+                        color_discrete_sequence=['#6366F1', '#10B981', '#F59E0B']
+                    )
+                    fig.update_layout(margin=dict(t=20, b=20, l=20, r=20), height=220, showlegend=True)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    st.markdown("##### 🍱 세부 구성 항목")
                     for food in data['foods']:
                         with st.expander(f"**{food['name']}** ({food['portion']})"):
                             st.write(f"• 예상 칼로리: **{food['calories']} kcal**")
 
-                    st.markdown("##### 💡 영양 코칭")
+                    st.markdown("##### 💡 AI 영양 코칭")
                     st.info(data['health_advice'])
 
                 except Exception as e:
@@ -414,8 +457,11 @@ with main_tab1:
                     else:
                         st.error(f"분석 오류 발생: {e}")
 
-# --- TAB 2: 과거 내 식단 히스토리 ---
-with main_tab2:
+# ---------------------------------------------------------
+# TAB 2: 식단 기록
+# ---------------------------------------------------------
+elif selected_tab == "식단 기록":
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
         st.info("🔒 게스트 모드에서는 히스토리 기능을 이용할 수 없습니다.")
     else:
@@ -429,7 +475,7 @@ with main_tab2:
             meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
 
             for item in meal_list:
-                with st.expander(f"{item.get('date')} | {item.get('meal_type')} ({item.get('total_calories')} kcal)"):
+                with st.expander(f"📅 {item.get('date')} | {item.get('meal_type')} ({item.get('total_calories')} kcal)"):
                     st.caption(f"기록 시간: {item.get('time')}")
                     st.write(f"탄수화물 **{item.get('carbs_g')}g** · 단백질 **{item.get('protein_g')}g** · 지방 **{item.get('fat_g')}g**")
                     st.markdown("---")
@@ -437,8 +483,11 @@ with main_tab2:
                         st.write(f"• {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
                     st.caption(f"💬 {item.get('health_advice')}")
 
-# --- TAB 3: 하루 종합 분석 보고서 ---
-with main_tab3:
+# ---------------------------------------------------------
+# TAB 3: 하루 리포트
+# ---------------------------------------------------------
+elif selected_tab == "하루 리포트":
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
         st.info("🔒 게스트 모드에서는 하루 보고서 기능을 이용할 수 없습니다.")
     else:
@@ -458,26 +507,38 @@ with main_tab3:
             total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
             total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
             
-            progress_ratio = min(total_cal / float(target_calories), 1.0)
-            
-            if total_cal > target_calories * 1.1:
-                st.error(f"⚠️ 목표 대비 초과 섭취 ({total_cal} / {target_calories} kcal)")
-            elif total_cal >= target_calories * 0.8:
-                st.success(f"✅ 권장 목표 달성 ({total_cal} / {target_calories} kcal)")
-            else:
-                st.info(f"💡 목표치 미달 섭취 ({total_cal} / {target_calories} kcal)")
-                
-            st.progress(progress_ratio)
-            
+            # Plotly 게이지 차트
+            fig_gauge = go.Figure(go.Indicator(
+                mode="gauge+number",
+                value=total_cal,
+                domain={'x': [0, 1], 'y': [0, 1]},
+                title={'text': "일일 섭취 칼로리 달성률", 'font': {'size': 14}},
+                gauge={
+                    'axis': {'range': [None, target_calories * 1.2]},
+                    'bar': {'color': "#4F46E5"},
+                    'steps': [
+                        {'range': [0, target_calories * 0.8], 'color': "#E0E7FF"},
+                        {'range': [target_calories * 0.8, target_calories * 1.1], 'color': "#C7D2FE"}
+                    ],
+                    'threshold': {
+                        'line': {'color': "red", 'width': 4},
+                        'thickness': 0.75,
+                        'value': target_calories
+                    }
+                }
+            ))
+            fig_gauge.update_layout(height=220, margin=dict(t=30, b=10, l=30, r=30))
+            st.plotly_chart(fig_gauge, use_container_width=True)
+
             d_col1, d_col2, d_col3, d_col4 = st.columns(4)
             with d_col1:
-                st.markdown(f"<div class='metric-card'><div class='metric-label'>총 칼로리</div><div class='metric-value'>{total_cal}</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><div class='metric-title'>총 칼로리</div><div class='metric-value'>{total_cal}</div></div>", unsafe_allow_html=True)
             with d_col2:
-                st.markdown(f"<div class='metric-card'><div class='metric-label'>탄수화물</div><div class='metric-value'>{total_carbs}g</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><div class='metric-title'>탄수화물</div><div class='metric-value'>{total_carbs}g</div></div>", unsafe_allow_html=True)
             with d_col3:
-                st.markdown(f"<div class='metric-card'><div class='metric-label'>단백질</div><div class='metric-value'>{total_protein}g</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><div class='metric-title'>단백질</div><div class='metric-value'>{total_protein}g</div></div>", unsafe_allow_html=True)
             with d_col4:
-                st.markdown(f"<div class='metric-card'><div class='metric-label'>지방</div><div class='metric-value'>{total_fat}g</div></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='metric-box'><div class='metric-title'>지방</div><div class='metric-value'>{total_fat}g</div></div>", unsafe_allow_html=True)
             
             st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
             summary_text_list = []
@@ -488,7 +549,7 @@ with main_tab3:
             
             st.markdown("<div style='height: 10px;'></div>", unsafe_allow_html=True)
             
-            if st.button("🤖 종합 영양 리포트 생성", type="primary", use_container_width=True):
+            if st.button("🤖 AI 종합 영양 리포트 생성", type="primary", use_container_width=True):
                 with st.spinner("종합 영양 상태 평가를 작성 중입니다..."):
                     try:
                         daily_summary = "\n".join(summary_text_list)
@@ -517,18 +578,21 @@ with main_tab3:
             if "last_feedback" in st.session_state:
                 pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
                 st.download_button(
-                    label="📄 PDF 리포트 파일 내려받기",
+                    label="📄 PDF 리포트 다운로드",
                     data=pdf_data,
                     file_name=f"nutricare_report_{selected_date}.pdf",
                     mime="application/pdf"
                 )
 
-# --- TAB 4: 주간 추이 시각화 ---
-with main_tab4:
+# ---------------------------------------------------------
+# TAB 4: 주간 추이
+# ---------------------------------------------------------
+elif selected_tab == "주간 추이":
+    st.markdown("<div style='height: 15px;'></div>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
         st.info("🔒 게스트 모드에서는 추이 시각화 기능을 이용할 수 없습니다.")
     else:
-        st.markdown("##### 📈 최근 섭취 칼로리 추이")
+        st.markdown("##### 📈 최근 7일 섭취 트렌드")
         
         meals_ref = db.collection("meals")
         query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
@@ -543,8 +607,25 @@ with main_tab4:
                 date_cal_map[d] = date_cal_map.get(d, 0) + c
                 
             sorted_dates = sorted(date_cal_map.keys())[-7:]
-            chart_data = {d: date_cal_map[d] for d in sorted_dates}
+            c_values = [date_cal_map[d] for d in sorted_dates]
             
-            st.bar_chart(chart_data)
+            # Plotly Line/Area 막대 차트
+            fig_bar = go.Figure()
+            fig_bar.add_trace(go.Bar(
+                x=sorted_dates,
+                y=c_values,
+                marker_color='#6366F1',
+                name='섭취 칼로리'
+            ))
+            fig_bar.add_hline(y=target_calories, line_dash="dash", line_color="red", annotation_text="목표 칼로리")
+            fig_bar.update_layout(
+                xaxis_title="날짜",
+                yaxis_title="kcal",
+                height=320,
+                margin=dict(t=20, b=20, l=20, r=20),
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_bar, use_container_width=True)
         else:
             st.info("저장된 일별 데이터가 부족합니다.")
