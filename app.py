@@ -6,6 +6,7 @@ import streamlit as st
 import qrcode
 from PIL import Image
 import google.generativeai as genai
+import extra_streamlit_components as stx
 
 # Firebase Admin SDK
 import firebase_admin
@@ -17,7 +18,6 @@ from firebase_admin import credentials, firestore, auth
 KST = timezone(timedelta(hours=9))
 
 def get_kst_now():
-    """현재 한국 시간을 반환하는 함수"""
     return datetime.now(KST)
 
 # =========================================================
@@ -37,7 +37,7 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 및 세션 상태 관리
+# 1. 페이지 레이아웃 및 쿠키 매니저 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="AI 식단 분석 코치",
@@ -46,8 +46,21 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# 쿠키 매니저 초기화
+cookie_manager = stx.CookieManager()
+
 if "user" not in st.session_state:
     st.session_state["user"] = None
+
+# ---------------------------------------------------------
+# 🍪 쿠키를 이용한 자동 로그인 체크
+# ---------------------------------------------------------
+saved_uid = cookie_manager.get(cookie="auth_uid")
+saved_email = cookie_manager.get(cookie="auth_email")
+
+# 세션이 없지만 쿠키에 정보가 남아 있는 경우 자동 로그인
+if not st.session_state["user"] and saved_uid and saved_email:
+    st.session_state["user"] = {"uid": saved_uid, "email": saved_email}
 
 # ---------------------------------------------------------
 # 📱 사이드바 (자동 URL 감지 QR 코드 생성)
@@ -83,6 +96,7 @@ if not st.session_state["user"]:
     with auth_tab1:
         login_email = st.text_input("이메일", key="login_email")
         login_password = st.text_input("비밀번호", type="password", key="login_pwd")
+        remember_me = st.checkbox("자동 로그인 (로그인 상태 유지)", value=True)
         
         col_login, col_guest = st.columns(2)
         with col_login:
@@ -90,6 +104,13 @@ if not st.session_state["user"]:
                 try:
                     user = auth.get_user_by_email(login_email)
                     st.session_state["user"] = {"uid": user.uid, "email": user.email}
+                    
+                    # 자동 로그인 체크 시 쿠키에 30일간 저장
+                    if remember_me:
+                        expires_at = datetime.now() + timedelta(days=30)
+                        cookie_manager.set("auth_uid", user.uid, expires_at=expires_at)
+                        cookie_manager.set("auth_email", user.email, expires_at=expires_at)
+                    
                     st.success(f"환영합니다, {user.email}님!")
                     st.rerun()
                 except Exception:
@@ -126,6 +147,9 @@ else:
     st.caption(f"👤 로그인 계정: {st.session_state['user']['email']}")
     if st.button("🚪 로그아웃", type="secondary"):
         st.session_state["user"] = None
+        # 로그아웃 시 쿠키 삭제
+        cookie_manager.delete("auth_uid")
+        cookie_manager.delete("auth_email")
         st.rerun()
 
 main_tab1, main_tab2, main_tab3 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리", "📊 일일 요약 분석"])
@@ -152,7 +176,6 @@ with main_tab1:
         btn_label = "🔥 AI 영양 분석 실행 (저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
         
         if st.button(btn_label, type="primary", use_container_width=True):
-            # KST 시간 기준으로 시간대 판단
             now_kst = get_kst_now()
             current_hour = now_kst.hour
             
@@ -268,7 +291,6 @@ with main_tab3:
     else:
         st.subheader("📊 하루 식단 종합 요약 보고서")
         
-        # KST 한국 날짜 기준으로 기본값 설정
         selected_date = st.date_input("조회할 날짜를 선택하세요", get_kst_now().date()).strftime("%Y-%m-%d")
         
         meals_ref = db.collection("meals")
