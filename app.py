@@ -20,7 +20,6 @@ API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
 if not firebase_admin._apps:
     try:
         firebase_secrets = dict(st.secrets["firebase"])
-        # Private key 줄바꿈 특수문자 처리
         firebase_secrets["private_key"] = firebase_secrets["private_key"].replace("\\n", "\n")
         cred = credentials.Certificate(firebase_secrets)
         firebase_admin.initialize_app(cred)
@@ -39,29 +38,65 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# 세션 상태 초기화: user가 None이면 비로그인, "guest"면 게스트 모드, dict 형태면 로그인 유저
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
 # ---------------------------------------------------------
-# 2. 로그인 / 회원가입 화면 (비로그인 상태)
+# 📱 사이드바 (자동 URL 감지 QR 코드 생성)
+# ---------------------------------------------------------
+with st.sidebar:
+    st.header("📱 모바일 접속 QR")
+    
+    # Streamlit 접속 헤더에서 현재 주소 자동 추출
+    try:
+        host = st.context.headers.get("host", "")
+        if host:
+            current_url = f"https://{host}"
+        else:
+            current_url = "https://share.streamlit.io"
+    except Exception:
+        current_url = "https://share.streamlit.io"
+
+    # URL 자동 QR 코드 생성
+    qr = qrcode.QRCode(version=1, box_size=8, border=2)
+    qr.add_data(current_url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    
+    st.image(buf.getvalue(), caption="스마트폰 카메라로 스캔하세요", width=200)
+    st.caption(f"접속 주소: {current_url}")
+
+# ---------------------------------------------------------
+# 2. 로그인 / 회원가입 / 게스트 입장 화면
 # ---------------------------------------------------------
 if not st.session_state["user"]:
     st.title("🥗 AI 식단 분석 코치")
-    st.subheader("로그인 후 식단 분석 및 개인 기록을 저장해 보세요!")
+    st.subheader("로그인 후 식단을 기록하거나, 게스트로 체험해 보세요!")
 
     auth_tab1, auth_tab2 = st.tabs(["🔑 로그인", "📝 회원가입"])
 
     with auth_tab1:
         login_email = st.text_input("이메일", key="login_email")
         login_password = st.text_input("비밀번호", type="password", key="login_pwd")
-        if st.button("로그인", type="primary", use_container_width=True):
-            try:
-                user = auth.get_user_by_email(login_email)
-                st.session_state["user"] = {"uid": user.uid, "email": user.email}
-                st.success(f"환영합니다, {user.email}님!")
+        
+        col_login, col_guest = st.columns(2)
+        with col_login:
+            if st.button("로그인", type="primary", use_container_width=True):
+                try:
+                    user = auth.get_user_by_email(login_email)
+                    st.session_state["user"] = {"uid": user.uid, "email": user.email}
+                    st.success(f"환영합니다, {user.email}님!")
+                    st.rerun()
+                except Exception:
+                    st.error("로그인 실패: 이메일 또는 비밀번호를 확인하세요.")
+        
+        with col_guest:
+            if st.button("👤 게스트로 이용하기", use_container_width=True):
+                st.session_state["user"] = "guest"
                 st.rerun()
-            except Exception:
-                st.error("로그인 실패: 이메일 또는 비밀번호를 확인하세요.")
 
     with auth_tab2:
         signup_email = st.text_input("이메일 등록", key="signup_email")
@@ -73,34 +108,28 @@ if not st.session_state["user"]:
             except Exception as e:
                 st.error(f"회원가입 실패: {e}")
 
-    st.stop()  # 로그인 전 하단 기능 접근 차단
+    st.stop()  # 로그인 또는 게스트 선택 전에는 하단 기능 차단
 
 # ---------------------------------------------------------
-# 3. 로그인 완료 후 화면 (식단 분석 & 히스토리 조회)
+# 3. 메인 서비스 화면 (로그인 회원 & 게스트 공통)
 # ---------------------------------------------------------
 st.title("🥗 AI 식단 분석 코치")
-st.caption(f"👤 로그인 계정: {st.session_state['user']['email']}")
 
-if st.button("🚪 로그아웃", type="secondary"):
-    st.session_state["user"] = None
-    st.rerun()
+# 로그인 정보 및 상태 표시
+if st.session_state["user"] == "guest":
+    st.warning("⚠️ 현재 **게스트 모드**로 이용 중입니다. 분석된 식단이 서버에 저장되지 않습니다.")
+    if st.button("🔑 로그인/회원가입 하러 가기", type="secondary"):
+        st.session_state["user"] = None
+        st.rerun()
+else:
+    st.caption(f"👤 로그인 계정: {st.session_state['user']['email']}")
+    if st.button("🚪 로그아웃", type="secondary"):
+        st.session_state["user"] = None
+        st.rerun()
 
-# 사이드바 (모바일 접속용 QR)
-with st.sidebar:
-    st.header("📱 모바일 접속 QR 생성")
-    public_url = st.text_input("ngrok 또는 배포된 URL 입력", placeholder="https://xxxx.ngrok-free.app")
-    if public_url:
-        qr = qrcode.QRCode(version=1, box_size=8, border=2)
-        qr.add_data(public_url)
-        qr.make(fit=True)
-        img = qr.make_image(fill_color="black", back_color="white")
-        buf = io.BytesIO()
-        img.save(buf, format="PNG")
-        st.image(buf.getvalue(), caption="스마트폰 카메라로 스캔하세요", width=200)
+main_tab1, main_tab2 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리"])
 
-main_tab1, main_tab2 = st.tabs(["📸 식단 분석 및 저장", "📂 내 식단 히스토리"])
-
-# --- TAB 1: 분석 및 서버 저장 ---
+# --- TAB 1: 식단 분석 및 저장 ---
 with main_tab1:
     sub_tab1, sub_tab2 = st.tabs(["📸 카메라 촬영", "🖼️ 앨범에서 선택"])
     img_file = None
@@ -119,7 +148,9 @@ with main_tab1:
         image = Image.open(img_file)
         st.image(image, caption="분석 대상 이미지", use_container_width=True)
 
-        if st.button("🔥 AI 영양 분석 & DB 저장", type="primary", use_container_width=True):
+        btn_label = "🔥 AI 영양 분석 실행 (기록 저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
+        
+        if st.button(btn_label, type="primary", use_container_width=True):
             current_hour = datetime.now().hour
             if 5 <= current_hour < 10:
                 meal_type = "아침 식단"
@@ -130,7 +161,7 @@ with main_tab1:
             else:
                 meal_type = "야식/간식"
 
-            with st.spinner("AI 분석 및 Firestore 데이터베이스 저장 중..."):
+            with st.spinner("AI가 식단을 분석 중입니다..."):
                 try:
                     genai.configure(api_key=API_KEY)
                     model = genai.GenerativeModel('gemini-3.6-flash')
@@ -162,24 +193,27 @@ with main_tab1:
                     
                     data = json.loads(json_str)
 
-                    # --- Firebase Firestore DB에 데이터 저장 ---
-                    now = datetime.now()
-                    doc_data = {
-                        "uid": st.session_state["user"]["uid"],
-                        "date": now.strftime("%Y-%m-%d"),
-                        "time": now.strftime("%H:%M:%S"),
-                        "meal_type": data['meal_type'],
-                        "total_calories": data['total_calories'],
-                        "carbs_g": data['carbs_g'],
-                        "protein_g": data['protein_g'],
-                        "fat_g": data['fat_g'],
-                        "foods": data['foods'],
-                        "health_advice": data['health_advice'],
-                        "created_at": firestore.SERVER_TIMESTAMP
-                    }
-                    db.collection("meals").add(doc_data)
+                    # --- 로그인된 회원일 경우에만 Firestore DB 저장 ---
+                    if st.session_state["user"] != "guest":
+                        now = datetime.now()
+                        doc_data = {
+                            "uid": st.session_state["user"]["uid"],
+                            "date": now.strftime("%Y-%m-%d"),
+                            "time": now.strftime("%H:%M:%S"),
+                            "meal_type": data['meal_type'],
+                            "total_calories": data['total_calories'],
+                            "carbs_g": data['carbs_g'],
+                            "protein_g": data['protein_g'],
+                            "fat_g": data['fat_g'],
+                            "foods": data['foods'],
+                            "health_advice": data['health_advice'],
+                            "created_at": firestore.SERVER_TIMESTAMP
+                        }
+                        db.collection("meals").add(doc_data)
+                        st.success("분석 완료 및 개인 기록 저장 성공!")
+                    else:
+                        st.success("분석 완료! (게스트 모드이므로 저장되지 않았습니다)")
 
-                    st.success("분석 완료 및 개인 기록 저장 성공!")
                     st.subheader(f"📌 {data['meal_type']} (총 {data['total_calories']} kcal)")
 
                     col1, col2, col3 = st.columns(3)
@@ -198,27 +232,30 @@ with main_tab1:
                     st.info(data['health_advice'])
 
                 except Exception as e:
-                    st.error(f"분석/저장 오류 발생: {e}")
+                    st.error(f"분석 오류 발생: {e}")
 
-# --- TAB 2: 과거 내 식단 저장소 ---
+# --- TAB 2: 과거 내 식단 히스토리 ---
 with main_tab2:
-    st.subheader("🗓️ 내 저장된 식단 히스토리")
-    
-    # 내 로그인 계정(UID)의 식단 기록만 가져오기
-    meals_ref = db.collection("meals")
-    query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
-
-    if not query:
-        st.info("저장된 식단 기록이 없습니다. 사진을 올려 식단을 기록해 보세요!")
+    if st.session_state["user"] == "guest":
+        st.info("🔒 게스트 모드에서는 식단 히스토리가 제공되지 않습니다.")
+        st.write("로그인 및 회원가입 후 나만의 식단 기록을 서버에 저장해 보세요!")
     else:
-        meal_list = [doc.to_dict() for doc in query]
-        meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
+        st.subheader("🗓️ 내 저장된 식단 히스토리")
+        
+        meals_ref = db.collection("meals")
+        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
 
-        for item in meal_list:
-            with st.expander(f"📅 {item.get('date')} [{item.get('meal_type')}] - {item.get('total_calories')} kcal"):
-                st.write(f"**시간:** {item.get('time')}")
-                st.write(f"**영양성분:** 탄수화물 {item.get('carbs_g')}g | 단백질 {item.get('protein_g')}g | 지방 {item.get('fat_g')}g")
-                st.write("**상세 음식:**")
-                for f in item.get("foods", []):
-                    st.write(f"- {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
-                st.caption(f"💡 조언: {item.get('health_advice')}")
+        if not query:
+            st.info("저장된 식단 기록이 없습니다. 사진을 올려 식단을 기록해 보세요!")
+        else:
+            meal_list = [doc.to_dict() for doc in query]
+            meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
+
+            for item in meal_list:
+                with st.expander(f"📅 {item.get('date')} [{item.get('meal_type')}] - {item.get('total_calories')} kcal"):
+                    st.write(f"**시간:** {item.get('time')}")
+                    st.write(f"**영양성분:** 탄수화물 {item.get('carbs_g')}g | 단백질 {item.get('protein_g')}g | 지방 {item.get('fat_g')}g")
+                    st.write("**상세 음식:**")
+                    for f in item.get("foods", []):
+                        st.write(f"- {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
+                    st.caption(f"💡 조언: {item.get('health_advice')}")
