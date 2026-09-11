@@ -1,12 +1,14 @@
 import os
 import io
 import json
+import time
 from datetime import datetime, timezone, timedelta
 import streamlit as st
 import qrcode
 from PIL import Image
 import google.generativeai as genai
 import extra_streamlit_components as stx
+from fpdf import FPDF
 
 # Firebase Admin SDK
 import firebase_admin
@@ -23,7 +25,7 @@ def get_kst_now():
 # =========================================================
 # 🔑 API KEY & Firebase 초기화
 # =========================================================
-API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
+DEFAULT_API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
 
 if not firebase_admin._apps:
     try:
@@ -36,6 +38,59 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+# =========================================================
+# 🤖 AI 요청 재시도(Retry) 및 예외 처리 함수
+# =========================================================
+def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
+    """API 한도 초과(429) 발생 시 자동 재시도하는 함수"""
+    if not api_key:
+        raise ValueError("API 키가 설정되지 않았습니다. 사이드바에서 Gemini API 키를 입력해 주세요.")
+        
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name)
+    
+    for attempt in range(max_retries):
+        try:
+            response = model.generate_content(contents)
+            return response
+        except Exception as e:
+            err_msg = str(e)
+            # 429 한도 초과 또는 ResourceExhausted 오류 시 재시도
+            if ("429" in err_msg or "ResourceExhausted" in err_msg or "quota" in err_msg.lower()) and attempt < max_retries - 1:
+                wait_time = (attempt + 1) * 3  # 3초, 6초 지연 후 재시도
+                st.warning(f"⏳ 사용량이 많아 요청이 대기 중입니다... ({attempt + 1}/{max_retries} 재시도 중, {wait_time}초 후 진행)")
+                time.sleep(wait_time)
+            else:
+                raise e
+
+# =========================================================
+# 📄 PDF 리포트 생성 함수
+# =========================================================
+def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_font("Helvetica", size=12)
+    
+    pdf.cell(200, 10, text=f"Daily Diet & Nutrition Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(5)
+    
+    pdf.cell(200, 10, text=f"Total Calories: {total_cal} kcal", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(200, 10, text=f"Carbs: {total_carbs}g | Protein: {total_protein}g | Fat: {total_fat}g", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(5)
+    
+    pdf.cell(200, 10, text="[ Meal Logs ]", new_x="LMARGIN", new_y="NEXT")
+    for m in daily_meals:
+        foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
+        pdf.cell(200, 8, text=f"- [{m.get('meal_type')}] {foods_str} : {m.get('total_calories')} kcal", new_x="LMARGIN", new_y="NEXT")
+    
+    pdf.ln(5)
+    pdf.cell(200, 10, text="[ AI Feedback ]", new_x="LMARGIN", new_y="NEXT")
+    
+    clean_text = feedback_text.encode('latin-1', 'replace').decode('latin-1')
+    pdf.multi_cell(0, 8, text=clean_text)
+    
+    return bytes(pdf.output())
+
 # ---------------------------------------------------------
 # 1. 페이지 레이아웃 및 쿠키 매니저 설정
 # ---------------------------------------------------------
@@ -46,7 +101,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 쿠키 매니저 초기화
 cookie_manager = stx.CookieManager()
 
 if "user" not in st.session_state:
@@ -58,14 +112,59 @@ if "user" not in st.session_state:
 saved_uid = cookie_manager.get(cookie="auth_uid")
 saved_email = cookie_manager.get(cookie="auth_email")
 
-# 세션이 없지만 쿠키에 정보가 남아 있는 경우 자동 로그인
 if not st.session_state["user"] and saved_uid and saved_email:
     st.session_state["user"] = {"uid": saved_uid, "email": saved_email}
 
 # ---------------------------------------------------------
-# 📱 사이드바 (자동 URL 감지 QR 코드 생성)
+# 📱 사이드바 (개인 API 키 + 목표 설정 + 물 트래커 + QR)
 # ---------------------------------------------------------
 with st.sidebar:
+    st.header("⚙️ 개인 설정 & 트래커")
+    
+    # 🔑 개인 Gemini API 키 입력받기 (선택)
+    user_api_key = st.text_input(
+        "🔑 개인 Gemini API 키 (선택)", 
+        type="password",
+        help="서버 공용 API 한도가 초과될 경우, 본인의 Google AI Studio API 키를 입력하면 제한 없이 사용 가능합니다."
+    )
+    
+    # 사용할 API 키 결정 (개인 키 우선 -> 없으면 기본 서버 키)
+    active_api_key = user_api_key.strip() if user_api_key.strip() else DEFAULT_API_KEY
+    
+    if user_api_key.strip():
+        st.caption("✅ 개인 API 키가 적용되었습니다.")
+    elif DEFAULT_API_KEY:
+        st.caption("ℹ️ 서버 공용 API 키를 사용 중입니다.")
+    else:
+        st.warning("⚠️ 등록된 API 키가 없습니다. API 키를 입력해 주세요.")
+
+    st.divider()
+
+    # 목표 칼로리 설정
+    target_calories = st.number_input("🎯 하루 목표 칼로리 (kcal)", min_value=1000, max_value=5000, value=2000, step=100)
+    
+    st.divider()
+    
+    # 💧 물 섭취량 트래커
+    st.header("💧 오늘 물 섭취량")
+    today_str = get_kst_now().strftime("%Y-%m-%d")
+    water_key = f"water_{today_str}"
+    
+    if water_key not in st.session_state:
+        st.session_state[water_key] = 0
+        
+    col_w1, col_w2 = st.columns(2)
+    with col_w1:
+        if st.button("➕ 250ml 추가"):
+            st.session_state[water_key] += 250
+    with col_w2:
+        if st.button("🔄 리셋"):
+            st.session_state[water_key] = 0
+            
+    st.write(f"현재 섭취량: **{st.session_state[water_key]} ml** / 목표 2000 ml")
+    st.progress(min(st.session_state[water_key] / 2000.0, 1.0))
+
+    st.divider()
     st.header("📱 모바일 접속 QR")
     
     try:
@@ -82,7 +181,6 @@ with st.sidebar:
     img.save(buf, format="PNG")
     
     st.image(buf.getvalue(), caption="스마트폰 카메라로 스캔하세요", width=200)
-    st.caption(f"접속 주소: {current_url}")
 
 # ---------------------------------------------------------
 # 2. 로그인 / 회원가입 / 게스트 입장 화면
@@ -105,7 +203,6 @@ if not st.session_state["user"]:
                     user = auth.get_user_by_email(login_email)
                     st.session_state["user"] = {"uid": user.uid, "email": user.email}
                     
-                    # 자동 로그인 체크 시 쿠키에 30일간 저장
                     if remember_me:
                         expires_at = datetime.now() + timedelta(days=30)
                         cookie_manager.set("auth_uid", user.uid, expires_at=expires_at)
@@ -147,12 +244,11 @@ else:
     st.caption(f"👤 로그인 계정: {st.session_state['user']['email']}")
     if st.button("🚪 로그아웃", type="secondary"):
         st.session_state["user"] = None
-        # 로그아웃 시 쿠키 삭제
         cookie_manager.delete("auth_uid")
         cookie_manager.delete("auth_email")
         st.rerun()
 
-main_tab1, main_tab2, main_tab3 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리", "📊 일일 요약 분석"])
+main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리", "📊 일일 요약 분석", "📈 주간 추이 시각화"])
 
 # --- TAB 1: 식단 분석 및 저장 ---
 with main_tab1:
@@ -190,9 +286,6 @@ with main_tab1:
 
             with st.spinner("AI가 식단을 분석 중입니다..."):
                 try:
-                    genai.configure(api_key=API_KEY)
-                    model = genai.GenerativeModel('gemini-3.6-flash')
-
                     prompt = f"""
                     당신은 전문 영양 코치입니다. 전달받은 이미지는 사용자가 **{meal_type}**으로 제출한 식단 사진입니다.
                     
@@ -211,7 +304,12 @@ with main_tab1:
                     }}
                     """
 
-                    response = model.generate_content([prompt, image])
+                    # 재시도 로직이 적용된 함수 호출
+                    response = generate_content_with_retry(
+                        api_key=active_api_key,
+                        model_name='gemini-3.6-flash',
+                        contents=[prompt, image]
+                    )
                     
                     raw_text = response.text.strip()
                     start_idx = raw_text.find("{")
@@ -257,7 +355,12 @@ with main_tab1:
                     st.info(data['health_advice'])
 
                 except Exception as e:
-                    st.error(f"분석 오류 발생: {e}")
+                    err_str = str(e)
+                    if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
+                        st.error("🚨 서버 무료 API 이용 한도가 일시적으로 초과되었습니다.")
+                        st.info("💡 **해결 방법**: 왼쪽 사이드바의 **'🔑 개인 Gemini API 키'** 입력란에 본인의 API 키를 입력하시면 즉시 제한 없이 이용하실 수 있습니다!")
+                    else:
+                        st.error(f"분석 오류 발생: {e}")
 
 # --- TAB 2: 과거 내 식단 히스토리 ---
 with main_tab2:
@@ -307,7 +410,18 @@ with main_tab3:
             total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
             total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
             
+            progress_ratio = min(total_cal / float(target_calories), 1.0)
             st.markdown(f"### 📈 {selected_date} 영양 섭취 총계")
+            
+            if total_cal > target_calories * 1.1:
+                st.error(f"⚠️ 목표 칼로리({target_calories} kcal)를 초과했습니다! ({total_cal} / {target_calories} kcal)")
+            elif total_cal >= target_calories * 0.8:
+                st.success(f"✅ 목표 칼로리에 적절히 도달했습니다! ({total_cal} / {target_calories} kcal)")
+            else:
+                st.info(f"💡 목표 칼로리보다 적게 섭취하셨습니다. ({total_cal} / {target_calories} kcal)")
+                
+            st.progress(progress_ratio)
+            
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("총 칼로리", f"{total_cal} kcal")
             col2.metric("총 탄수화물", f"{total_carbs} g")
@@ -315,45 +429,79 @@ with main_tab3:
             col4.metric("총 지방", f"{total_fat} g")
             
             st.divider()
-            
             st.markdown("### 🍽️ 오늘 먹은 식단 타임라인")
             summary_text_list = []
             for m in daily_meals:
                 foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
                 st.write(f"- **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
-                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} (칼로리: {m.get('total_calories')}kcal, 탄수화물: {m.get('carbs_g')}g, 단백질: {m.get('protein_g')}g, 지방: {m.get('fat_g')}g)")
+                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} (칼로리: {m.get('total_calories')}kcal)")
             
             st.divider()
             
             if st.button("🤖 AI 하루 식단 종합 총평 받기", type="primary", use_container_width=True):
                 with st.spinner("하루 식단을 종합 분석하여 보고서를 작성 중입니다..."):
                     try:
-                        genai.configure(api_key=API_KEY)
-                        model = genai.GenerativeModel('gemini-3.6-flash')
-                        
                         daily_summary = "\n".join(summary_text_list)
                         prompt = f"""
-                        당신은 수석 영양 코치입니다. 사용자가 오늘 하루 동안 먹은 식단 리스트는 다음과 같습니다:
+                        당신은 수석 영양 코치입니다. 사용자의 오늘 하루 식단 데이터:
+                        - 총 칼로리: {total_cal} kcal (목표: {target_calories} kcal)
+                        - 탄수화물: {total_carbs}g | 단백질: {total_protein}g | 지방: {total_fat}g
                         
-                        [오늘의 식단 총계]
-                        - 총 칼로리: {total_cal} kcal
-                        - 총 탄수화물: {total_carbs} g
-                        - 총 단백질: {total_protein} g
-                        - 총 지방: {total_fat} g
-                        
-                        [식단 세부 기록]
+                        [세부 기록]
                         {daily_summary}
                         
-                        위 데이터를 바탕으로 사용자의 하루 영양 섭취 상태를 종합적으로 평가하는 보고서를 작성해 주세요.
-                        반드시 다음 항목을 포함해서 친절하고 전문적인 어조로 작성해 주세요:
-                        1. 📊 오늘 식단 종합 평가 (영양 비율 및 칼로리 적절성)
-                        2. 👍 잘한 점 (칭찬할 만한 식습관)
-                        3. ⚠️ 아쉬운 점 및 개선 가이드 (부족하거나 과도한 영양소 분석)
-                        4. 💡 내일을 위한 식단 추천 팁
+                        위 데이터를 바탕으로 종합 평가 보고서를 작성해 주세요 (1. 종합 평가, 2. 잘한 점, 3. 개선 가이드, 4. 내일 식단 팁).
                         """
                         
-                        response = model.generate_content(prompt)
+                        # 재시도 로직 적용
+                        response = generate_content_with_retry(
+                            api_key=active_api_key,
+                            model_name='gemini-3.6-flash',
+                            contents=prompt
+                        )
+                        st.session_state["last_feedback"] = response.text
                         st.markdown("### 📋 AI 영양 코치의 하루 종합 피드백")
                         st.info(response.text)
                     except Exception as e:
-                        st.error(f"종합 보고서 생성 중 오류 발생: {e}")
+                        err_str = str(e)
+                        if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
+                            st.error("🚨 서버 무료 API 이용 한도가 일시적으로 초과되었습니다.")
+                            st.info("💡 사이드바의 **'🔑 개인 Gemini API 키'**란에 개인 키를 입력하시면 바로 사용 가능합니다.")
+                        else:
+                            st.error(f"종합 보고서 생성 중 오류 발생: {e}")
+
+            if "last_feedback" in st.session_state:
+                pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
+                st.download_button(
+                    label="📄 일일 리포트 PDF 다운로드",
+                    data=pdf_data,
+                    file_name=f"diet_report_{selected_date}.pdf",
+                    mime="application/pdf"
+                )
+
+# --- TAB 4: 주간 추이 시각화 ---
+with main_tab4:
+    if st.session_state["user"] == "guest":
+        st.info("🔒 게스트 모드에서는 주간 시각화 기능이 제공되지 않습니다.")
+    else:
+        st.subheader("📈 최근 식단 칼로리 변화 추이")
+        
+        meals_ref = db.collection("meals")
+        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
+        
+        if query:
+            meal_list = [doc.to_dict() for doc in query]
+            
+            date_cal_map = {}
+            for m in meal_list:
+                d = m.get("date", "")
+                c = m.get("total_calories", 0)
+                date_cal_map[d] = date_cal_map.get(d, 0) + c
+                
+            sorted_dates = sorted(date_cal_map.keys())[-7:]
+            chart_data = {d: date_cal_map[d] for d in sorted_dates}
+            
+            st.bar_chart(chart_data)
+            st.caption("최근 등록된 날짜별 총 칼로리(kcal) 그래프입니다.")
+        else:
+            st.info("저장된 데이터가 없어 그래프를 표시할 수 없습니다.")
