@@ -15,6 +15,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
 # =========================================================
+# 📌 앱 기본 정보 (원하시는 이름으로 자유롭게 수정하세요)
+# =========================================================
+APP_TITLE = "🥗 식단 관리 서비스"
+
+# =========================================================
 # 🔑 KST (한국 표준시 UTC+9) 시간 설정
 # =========================================================
 KST = timezone(timedelta(hours=9))
@@ -68,7 +73,7 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     pdf.add_page()
     pdf.set_font("Helvetica", size=12)
     
-    pdf.cell(200, 10, text=f"NutriCare Daily Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(200, 10, text=f"Daily Nutrition Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.ln(5)
     pdf.cell(200, 10, text=f"Total: {total_cal} kcal | Carbs: {total_carbs}g | Protein: {total_protein}g | Fat: {total_fat}g", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(5)
@@ -90,76 +95,68 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
 # 1. 페이지 레이아웃 & 테마 설정
 # ---------------------------------------------------------
 st.set_page_config(
-    page_title="NutriCare",
+    page_title=APP_TITLE,
     page_icon="🥗",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
-# 세션 상태에 테마 모드 초기화 (기본값: dark)
+# 세션 상태에 테마 모드 초기화
 if "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "dark"
 
-# 🎨 라이트/다크 테마 CSS 디테일 교정
+# 🎨 안정적인 라이트/다크 CSS 커스텀
 if st.session_state["theme_mode"] == "dark":
     theme_css = """
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    * { font-family: 'Pretendard', sans-serif !important; }
-
-    /* 앱 바탕 */
-    .stApp, [data-testid="stHeader"] {
+    
+    html, body, [data-testid="stAppViewContainer"] {
+        font-family: 'Pretendard', sans-serif !important;
         background-color: #121212 !important;
-        color: #E0E0E0 !important;
+        color: #F1F5F9 !important;
     }
-
-    /* 기본 텍스트 색상 통일 */
-    p, h1, h2, h3, h4, h5, h6, span, label, div {
-        color: #E0E0E0 !important;
+    header[data-testid="stHeader"] {
+        background-color: #121212 !important;
     }
-
-    /* Metric 박스 */
+    
+    /* 텍스트 요소 */
+    p, span, label, h1, h2, h3, h4, h5, h6 {
+        color: #F1F5F9 !important;
+    }
+    
+    /* 카드 / 수치 영역 */
     div[data-testid="stMetric"] {
         background-color: #1E1E1E !important;
         border: 1px solid #333333 !important;
-        border-radius: 12px;
+        border-radius: 10px;
         padding: 12px;
     }
-    div[data-testid="stMetric"] label, div[data-testid="stMetric"] div {
-        color: #FFFFFF !important;
-    }
-
-    /* Tabs 탭 메뉴 */
+    
+    /* 탭 메뉴 */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1E1E1E !important;
-        border-radius: 10px;
-        padding: 4px;
+        border-radius: 8px;
     }
-    .stTabs [data-baseweb="tab"] {
-        color: #A0A0A0 !important;
+    .stTabs [data-baseweb="tab"] p {
+        color: #94A3B8 !important;
     }
-    .stTabs [aria-selected="true"] span {
-        color: #00E676 !important;
+    .stTabs [aria-selected="true"] p {
+        color: #4ADE80 !important;
         font-weight: bold !important;
     }
-
-    /* 입력 폼 및 인풋 */
+    
+    /* 입력창 및 선택 박스 */
     input, textarea, select, div[data-baseweb="select"] {
         background-color: #1E1E1E !important;
         color: #FFFFFF !important;
-        border-color: #333333 !important;
+        border: 1px solid #333333 !important;
     }
-
-    /* Expander 토글 박스 */
+    
+    /* 접이식 영역 (Expander) */
     div[data-testid="stExpander"] {
         background-color: #1E1E1E !important;
         border: 1px solid #333333 !important;
-        border-radius: 8px !important;
-    }
-
-    /* 버튼 스타일 */
-    .stButton>button {
-        border-radius: 10px !important;
     }
     </style>
     """
@@ -167,67 +164,58 @@ else:
     theme_css = """
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    * { font-family: 'Pretendard', sans-serif !important; }
-
-    /* 앱 바탕 (밝은 백그라운드) */
-    .stApp, [data-testid="stHeader"] {
-        background-color: #F8FAFC !important;
-        color: #1E293B !important;
-    }
-
-    /* 기본 텍스트 색상 통일 (어두운 회색/검정 계열) */
-    p, h1, h2, h3, h4, h5, h6, span, label, div {
-        color: #1E293B !important;
-    }
-
-    /* Metric 박스 */
-    div[data-testid="stMetric"] {
+    
+    html, body, [data-testid="stAppViewContainer"] {
+        font-family: 'Pretendard', sans-serif !important;
         background-color: #FFFFFF !important;
-        border: 1px solid #E2E8F0 !important;
-        border-radius: 12px;
-        padding: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-    }
-    div[data-testid="stMetric"] label, div[data-testid="stMetric"] div {
         color: #0F172A !important;
     }
-
-    /* Tabs 탭 메뉴 */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #E2E8F0 !important;
-        border-radius: 10px;
-        padding: 4px;
+    header[data-testid="stHeader"] {
+        background-color: #FFFFFF !important;
     }
-    .stTabs [data-baseweb="tab"] span {
+    
+    /* 텍스트 요소 - 명확한 진한 검은색 계열 */
+    p, span, label, h1, h2, h3, h4, h5, h6 {
+        color: #0F172A !important;
+    }
+    
+    /* 카드 / 수치 영역 */
+    div[data-testid="stMetric"] {
+        background-color: #F8FAFC !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 10px;
+        padding: 12px;
+    }
+    
+    /* 탭 메뉴 */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #F1F5F9 !important;
+        border-radius: 8px;
+    }
+    .stTabs [data-baseweb="tab"] p {
         color: #64748B !important;
     }
-    .stTabs [aria-selected="true"] span {
+    .stTabs [aria-selected="true"] p {
         color: #2563EB !important;
         font-weight: bold !important;
     }
-
-    /* 입력 폼 및 인풋 */
+    
+    /* 입력창 및 선택 박스 */
     input, textarea, select {
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         border: 1px solid #CBD5E1 !important;
     }
-
-    /* Expander 토글 박스 */
+    
+    /* 접이식 영역 (Expander) */
     div[data-testid="stExpander"] {
-        background-color: #FFFFFF !important;
+        background-color: #F8FAFC !important;
         border: 1px solid #E2E8F0 !important;
-        border-radius: 8px !important;
     }
-
-    /* 주요 안내 메세지 박스 내 텍스트 컬러 보정 */
-    div[data-testid="stAlert"] * {
+    
+    /* 알림창 내부 글자 지정 */
+    div[data-testid="stAlert"] p {
         color: #0F172A !important;
-    }
-
-    /* 버튼 스타일 */
-    .stButton>button {
-        border-radius: 10px !important;
     }
     </style>
     """
@@ -317,7 +305,7 @@ with st.sidebar:
 if not st.session_state["user"]:
     top_col1, top_col2 = st.columns([4, 1.2])
     with top_col1:
-        st.markdown("<h2 style='margin:0;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
+        st.markdown(f"<h2 style='margin:0;'>{APP_TITLE}</h2>", unsafe_allow_html=True)
     with top_col2:
         if st.session_state["theme_mode"] == "dark":
             if st.button("☀️ 라이트"):
@@ -380,7 +368,7 @@ if not st.session_state["user"]:
 # ---------------------------------------------------------
 header_col1, header_col2, header_col3 = st.columns([2.3, 1.2, 1.2])
 with header_col1:
-    st.markdown("<h3 style='margin:0;'>🥗 NutriCare</h3>", unsafe_allow_html=True)
+    st.markdown(f"<h3 style='margin:0;'>{APP_TITLE}</h3>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
         st.caption("👀 게스트 모드")
     else:
@@ -617,7 +605,7 @@ with main_tab3:
                 st.download_button(
                     label="📄 PDF 리포트 다운로드",
                     data=pdf_data,
-                    file_name=f"NutriCare_{selected_date}.pdf",
+                    file_name=f"Report_{selected_date}.pdf",
                     mime="application/pdf"
                 )
 
