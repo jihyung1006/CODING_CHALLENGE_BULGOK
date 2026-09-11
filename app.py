@@ -103,17 +103,17 @@ st.set_page_config(
 
 # 세션 상태에 테마 모드 초기화
 if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "light"
+    st.session_state["theme_mode"] = "dark"
 
-# 🎨 테마 스타일 제어 (Streamlit 정밀 셀렉터 지정)
+# 🎨 테마 모드별 변수 분기
 if st.session_state["theme_mode"] == "dark":
     bg_main = "#121212"
     bg_card = "#1E1E1E"
     text_main = "#F1F5F9"
     text_sub = "#94A3B8"
     border_color = "#333333"
-    input_bg = "#262626"
-    placeholder_color = "#666666"
+    input_bg = "#2A2A2A"
+    placeholder_color = "#71717A"
     active_tab = "#4ADE80"
 else:
     bg_main = "#FFFFFF"
@@ -129,14 +129,14 @@ theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 글로벌 스타일 */
+/* 전체 배경 및 폰트 강제 적용 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
     color: {text_main} !important;
 }}
 
-/* 사이드바 배경 및 내부 정밀 스타일 */
+/* 사이드바 영역 배경 및 텍스트 강제 지정 */
 [data-testid="stSidebar"], 
 [data-testid="stSidebar"] > div:first-child,
 section[data-testid="stSidebar"] {{
@@ -151,7 +151,7 @@ section[data-testid="stSidebar"] {{
     color: {text_main} !important;
 }}
 
-/* 기본 텍스트 색상 강제 지정 */
+/* 기본 텍스트 색상 전체 강제 적용 */
 p, span, label, h1, h2, h3, h4, h5, h6, caption {{
     color: {text_main} !important;
 }}
@@ -178,25 +178,34 @@ div[data-testid="stMetric"] {{
     font-weight: bold !important;
 }}
 
-/* 🔧 입력창 정밀 커스텀 (우측 아이콘 뭉개짐 해결) */
+/* 🔧 [완벽 해결] 모든 입력창 (텍스트, 날짜선택, 셀렉트박스 등) 배경 및 글자색 강제 적용 */
 div[data-baseweb="input"], 
 div[data-baseweb="base-input"],
-div[data-testid="stInputWithIcon"] {{
+div[data-testid="stInputWithIcon"],
+div[data-baseweb="select"] > div {{
     background-color: {input_bg} !important;
-    border-color: {border_color} !important;
+    border: 1px solid {border_color} !important;
     border-radius: 8px !important;
 }}
 
-div[data-baseweb="input"] input {{
+/* 입력창 내부 실제 텍스트 및 Placeholder 색상 */
+div[data-baseweb="input"] input,
+div[data-baseweb="base-input"] input,
+textarea {{
     background-color: transparent !important;
     color: {text_main} !important;
 }}
 
-div[data-baseweb="input"] input::placeholder {{
+input::placeholder, textarea::placeholder {{
     color: {placeholder_color} !important;
+    -webkit-text-fill-color: {placeholder_color} !important;
 }}
 
-/* 비밀번호 눈동자 아이콘 / 숫자 증감 버튼 우측 박스 투명 처리 */
+div[data-baseweb="input"] input {{
+    -webkit-text-fill-color: {text_main} !important;
+}}
+
+/* 입력창 우측 아이콘 및 증감 버튼 레이어 투명 처리 */
 div[data-baseweb="input"] [data-baseweb="icon"],
 div[data-baseweb="input"] button,
 div[data-baseweb="input"] div[role="button"],
