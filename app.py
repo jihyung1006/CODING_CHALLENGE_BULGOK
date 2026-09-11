@@ -100,21 +100,28 @@ st.set_page_config(
 if "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "dark"
 
-# 테마에 따른 동적 CSS 정의
+# 🎨 라이트/다크 테마 CSS 디테일 교정
 if st.session_state["theme_mode"] == "dark":
     theme_css = """
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', sans-serif !important; }
 
-    .stApp {
+    /* 앱 바탕 */
+    .stApp, [data-testid="stHeader"] {
         background-color: #121212 !important;
         color: #E0E0E0 !important;
     }
 
+    /* 기본 텍스트 색상 통일 */
+    p, h1, h2, h3, h4, h5, h6, span, label, div {
+        color: #E0E0E0 !important;
+    }
+
+    /* Metric 박스 */
     div[data-testid="stMetric"] {
         background-color: #1E1E1E !important;
-        border: 1px solid #2C2C2C !important;
+        border: 1px solid #333333 !important;
         border-radius: 12px;
         padding: 12px;
     }
@@ -122,6 +129,7 @@ if st.session_state["theme_mode"] == "dark":
         color: #FFFFFF !important;
     }
 
+    /* Tabs 탭 메뉴 */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #1E1E1E !important;
         border-radius: 10px;
@@ -130,18 +138,26 @@ if st.session_state["theme_mode"] == "dark":
     .stTabs [data-baseweb="tab"] {
         color: #A0A0A0 !important;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #2D2D2D !important;
-        color: #FFFFFF !important;
-        border-radius: 8px;
+    .stTabs [aria-selected="true"] span {
+        color: #00E676 !important;
+        font-weight: bold !important;
     }
 
-    .stTextInput input, .stNumberInput input, .stSelectbox select {
+    /* 입력 폼 및 인풋 */
+    input, textarea, select, div[data-baseweb="select"] {
         background-color: #1E1E1E !important;
         color: #FFFFFF !important;
-        border: 1px solid #333333 !important;
+        border-color: #333333 !important;
     }
 
+    /* Expander 토글 박스 */
+    div[data-testid="stExpander"] {
+        background-color: #1E1E1E !important;
+        border: 1px solid #333333 !important;
+        border-radius: 8px !important;
+    }
+
+    /* 버튼 스타일 */
     .stButton>button {
         border-radius: 10px !important;
     }
@@ -153,11 +169,18 @@ else:
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', sans-serif !important; }
 
-    .stApp {
+    /* 앱 바탕 (밝은 백그라운드) */
+    .stApp, [data-testid="stHeader"] {
         background-color: #F8FAFC !important;
-        color: #0F172A !important;
+        color: #1E293B !important;
     }
 
+    /* 기본 텍스트 색상 통일 (어두운 회색/검정 계열) */
+    p, h1, h2, h3, h4, h5, h6, span, label, div {
+        color: #1E293B !important;
+    }
+
+    /* Metric 박스 */
     div[data-testid="stMetric"] {
         background-color: #FFFFFF !important;
         border: 1px solid #E2E8F0 !important;
@@ -169,26 +192,40 @@ else:
         color: #0F172A !important;
     }
 
+    /* Tabs 탭 메뉴 */
     .stTabs [data-baseweb="tab-list"] {
         background-color: #E2E8F0 !important;
         border-radius: 10px;
         padding: 4px;
     }
-    .stTabs [data-baseweb="tab"] {
+    .stTabs [data-baseweb="tab"] span {
         color: #64748B !important;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #FFFFFF !important;
-        color: #0F172A !important;
-        border-radius: 8px;
+    .stTabs [aria-selected="true"] span {
+        color: #2563EB !important;
+        font-weight: bold !important;
     }
 
-    .stTextInput input, .stNumberInput input, .stSelectbox select {
+    /* 입력 폼 및 인풋 */
+    input, textarea, select {
         background-color: #FFFFFF !important;
         color: #0F172A !important;
         border: 1px solid #CBD5E1 !important;
     }
 
+    /* Expander 토글 박스 */
+    div[data-testid="stExpander"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 8px !important;
+    }
+
+    /* 주요 안내 메세지 박스 내 텍스트 컬러 보정 */
+    div[data-testid="stAlert"] * {
+        color: #0F172A !important;
+    }
+
+    /* 버튼 스타일 */
     .stButton>button {
         border-radius: 10px !important;
     }
@@ -278,7 +315,7 @@ with st.sidebar:
 # 2. 로그인 / 회원가입 화면
 # ---------------------------------------------------------
 if not st.session_state["user"]:
-    top_col1, top_col2 = st.columns([4, 1])
+    top_col1, top_col2 = st.columns([4, 1.2])
     with top_col1:
         st.markdown("<h2 style='margin:0;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
     with top_col2:
@@ -341,7 +378,7 @@ if not st.session_state["user"]:
 # ---------------------------------------------------------
 # 3. 메인 서비스 화면
 # ---------------------------------------------------------
-header_col1, header_col2, header_col3 = st.columns([2.5, 1, 1])
+header_col1, header_col2, header_col3 = st.columns([2.3, 1.2, 1.2])
 with header_col1:
     st.markdown("<h3 style='margin:0;'>🥗 NutriCare</h3>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
