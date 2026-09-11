@@ -96,14 +96,12 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 🎨 깔끔한 UI 스타일링
+# 🎨 깔끔한 UI 스타일링 (unsafe_allow_html=True로 정정 완료)
 st.markdown("""
     <style>
-    /* 헤더 & 기본 폰트 감성 */
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
     * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif; }
     
-    /* 카드형 컨테이너 감성 */
     .stMetric {
         background-color: #F8FAFC;
         border-radius: 12px;
@@ -111,7 +109,6 @@ st.markdown("""
         border: 1px solid #F1F5F9;
     }
     
-    /* 세련된 태그/배지 */
     .mz-badge {
         background-color: #EFF6FF;
         color: #2563EB;
@@ -121,7 +118,7 @@ st.markdown("""
         font-size: 0.85rem;
     }
     </style>
-""", unsafe_allow_cookies=True)
+""", unsafe_allow_html=True)
 
 cookie_manager = stx.CookieManager()
 
