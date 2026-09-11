@@ -92,7 +92,7 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 & 테마 설정
+# 1. 페이지 레이아웃 & 완벽 동기화 테마 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title=APP_TITLE,
@@ -105,54 +105,82 @@ st.set_page_config(
 if "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "light"
 
-# 🎨 테마 모드별 변수 지정
+# 🎨 라이트 / 다크 모드 완벽 동기화 변수 지정
 if st.session_state["theme_mode"] == "dark":
-    bg_main = "#121212"
-    bg_card = "#1E1E1E"
-    bg_input = "#2A2A2A"
-    text_main = "#FFFFFF"
-    text_sub = "#AAAAAA"
-    border_color = "#383838"
-    active_tab = "#4ADE80"
+    bg_main = "#0E1117"
+    bg_card = "#161B22"
+    bg_input = "#21262D"
+    text_main = "#F0F6FC"
+    text_sub = "#8B949E"
+    border_color = "#30363D"
+    active_tab = "#3FB950"
 else:
     bg_main = "#FFFFFF"
-    bg_card = "#F8FAFC"
+    bg_card = "#F6F8FA"
     bg_input = "#FFFFFF"
-    text_main = "#1A202C"
-    text_sub = "#4A5568"
-    border_color = "#E2E8F0"
-    active_tab = "#2563EB"
+    text_main = "#1F2328"
+    text_sub = "#656D76"
+    border_color = "#D0D7DE"
+    active_tab = "#0969DA"
 
 theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 앱 최상위 스킨 적용 */
+/* 1. 최상위 및 전체 폰트 적용 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
     color: {text_main} !important;
 }}
 
-/* 사이드바 */
+/* 2. 사이드바 배경 및 테두리 */
 [data-testid="stSidebar"], section[data-testid="stSidebar"] {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
 }}
 
-/* 기본 글자색 지정 */
+/* 3. 일반 텍스트 라벨 색상 모드 동기화 */
 p, span, label, h1, h2, h3, h4, h5, h6, div {{
     color: {text_main} !important;
 }}
 
-/* 카드, 메트릭, 엑스팬더 */
+/* 4. 입력 폼 컴포넌트 완벽 전환 (텍스트 박스, 선택 상자, 팝업 달력 등) */
+div[data-baseweb="input"],
+div[data-baseweb="base-input"],
+div[data-baseweb="select"],
+div[data-baseweb="select"] > div,
+div[data-baseweb="popover"],
+div[data-baseweb="calendar"],
+div[data-baseweb="calendar"] * {{
+    background-color: {bg_input} !important;
+    border-color: {border_color} !important;
+    color: {text_main} !important;
+}}
+
+input, textarea {{
+    background-color: transparent !important;
+    color: {text_main} !important;
+}}
+
+/* 5. 파일 업로더 스킨 정밀 교체 */
+section[data-testid="stFileUploadDropzone"] {{
+    background-color: {bg_input} !important;
+    border: 1px dashed {border_color} !important;
+}}
+section[data-testid="stFileUploadDropzone"] * {{
+    color: {text_main} !important;
+    fill: {text_main} !important;
+}}
+
+/* 6. 메트릭, Expander 박스 */
 div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     background-color: {bg_card} !important;
     border: 1px solid {border_color} !important;
     border-radius: 10px;
 }}
 
-/* 탭 UI */
+/* 7. 상단 탭 버튼 UI */
 .stTabs [data-baseweb="tab-list"] {{
     background-color: {bg_card} !important;
     border-radius: 8px;
@@ -166,7 +194,7 @@ div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     font-weight: bold !important;
 }}
 
-/* 버튼 스타일링 */
+/* 8. 버튼 디자인 설정 */
 .stButton > button {{
     border-radius: 8px !important;
     border: 1px solid {border_color} !important;
@@ -174,6 +202,7 @@ div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     color: {text_main} !important;
 }}
 
+/* Primary 강조 버튼 */
 .stButton > button[kind="primary"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
