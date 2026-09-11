@@ -5,3 +5,4 @@ pillow
 pydantic
 qrcode
 firebase-admin
+extra-streamlit-components
