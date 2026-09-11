@@ -130,7 +130,7 @@ st.markdown("""
         font-weight: 700;
     }
     
-    /* 뱃지 라이크 텍스트 */
+    /* 뱃지 스타일 */
     .meal-badge {
         display: inline-block;
         background: #EFF6FF;
@@ -154,7 +154,7 @@ st.markdown("""
         letter-spacing: -0.02em;
     }
 </style>
-""", unsafe_allow_html=unsafe_allow_ok=True)
+""", unsafe_allow_html=True)
 
 cookie_manager = stx.CookieManager()
 
@@ -282,7 +282,7 @@ if not st.session_state["user"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 3. 메인 서비스 화면 (App 헤더 컴포넌트)
+# 3. 메인 서비스 화면
 # ---------------------------------------------------------
 header_col1, header_col2 = st.columns([3, 1])
 with header_col1:
@@ -386,7 +386,6 @@ with main_tab1:
                         }
                         db.collection("meals").add(doc_data)
 
-                    # 메트릭 커스텀 위젯 시각화
                     st.markdown(f"<span class='meal-badge'>{data['meal_type']}</span>", unsafe_allow_html=True)
                     st.markdown(f"### 총 {data['total_calories']} kcal")
 
