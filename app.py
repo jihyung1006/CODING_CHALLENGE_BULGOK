@@ -15,9 +15,27 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
 # =========================================================
-# 📌 앱 기본 정보
+# 📌 앱 기본 정보 및 페이지 설정
 # =========================================================
 APP_TITLE = "🥗 식단 관리 서비스"
+
+st.set_page_config(
+    page_title=APP_TITLE,
+    page_icon="🥗",
+    layout="centered",
+    initial_sidebar_state="collapsed"
+)
+
+# 기본 폰트 및 최소한의 레이아웃 다듬기용 CSS (테마 색상은 Streamlit 내장 시스템 사용)
+st.markdown("""
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+html, body, [data-testid="stAppViewContainer"] {
+    font-family: 'Pretendard', sans-serif !important;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # =========================================================
 # 🔑 KST (한국 표준시 UTC+9) 시간 설정
@@ -92,138 +110,13 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 & 완벽 동기화 테마 설정
+# 🍪 쿠키 및 로그인 관리
 # ---------------------------------------------------------
-st.set_page_config(
-    page_title=APP_TITLE,
-    page_icon="🥗",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
-
-# 세션 상태에 테마 모드 초기화 (기본: light)
-if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "light"
-
-# 🎨 라이트 / 다크 모드 완벽 동기화 변수 지정
-if st.session_state["theme_mode"] == "dark":
-    bg_main = "#0E1117"
-    bg_card = "#161B22"
-    bg_input = "#21262D"
-    text_main = "#F0F6FC"
-    text_sub = "#8B949E"
-    border_color = "#30363D"
-    active_tab = "#3FB950"
-else:
-    bg_main = "#FFFFFF"
-    bg_card = "#F6F8FA"
-    bg_input = "#FFFFFF"
-    text_main = "#1F2328"
-    text_sub = "#656D76"
-    border_color = "#D0D7DE"
-    active_tab = "#0969DA"
-
-theme_css = f"""
-<style>
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-
-/* 1. 최상위 및 전체 폰트 적용 */
-html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
-    font-family: 'Pretendard', sans-serif !important;
-    background-color: {bg_main} !important;
-    color: {text_main} !important;
-}}
-
-/* 2. 사이드바 배경 및 테두리 */
-[data-testid="stSidebar"], section[data-testid="stSidebar"] {{
-    background-color: {bg_card} !important;
-    border-right: 1px solid {border_color} !important;
-}}
-
-/* 3. 일반 텍스트 라벨 색상 모드 동기화 */
-p, span, label, h1, h2, h3, h4, h5, h6, div {{
-    color: {text_main} !important;
-}}
-
-/* 4. 입력 폼 컴포넌트 완벽 전환 (텍스트 박스, 선택 상자, 팝업 달력 등) */
-div[data-baseweb="input"],
-div[data-baseweb="base-input"],
-div[data-baseweb="select"],
-div[data-baseweb="select"] > div,
-div[data-baseweb="popover"],
-div[data-baseweb="calendar"],
-div[data-baseweb="calendar"] * {{
-    background-color: {bg_input} !important;
-    border-color: {border_color} !important;
-    color: {text_main} !important;
-}}
-
-input, textarea {{
-    background-color: transparent !important;
-    color: {text_main} !important;
-}}
-
-/* 5. 파일 업로더 스킨 정밀 교체 */
-section[data-testid="stFileUploadDropzone"] {{
-    background-color: {bg_input} !important;
-    border: 1px dashed {border_color} !important;
-}}
-section[data-testid="stFileUploadDropzone"] * {{
-    color: {text_main} !important;
-    fill: {text_main} !important;
-}}
-
-/* 6. 메트릭, Expander 박스 */
-div[data-testid="stMetric"], div[data-testid="stExpander"] {{
-    background-color: {bg_card} !important;
-    border: 1px solid {border_color} !important;
-    border-radius: 10px;
-}}
-
-/* 7. 상단 탭 버튼 UI */
-.stTabs [data-baseweb="tab-list"] {{
-    background-color: {bg_card} !important;
-    border-radius: 8px;
-    padding: 4px;
-}}
-.stTabs [data-baseweb="tab"] p {{
-    color: {text_sub} !important;
-}}
-.stTabs [aria-selected="true"] p {{
-    color: {active_tab} !important;
-    font-weight: bold !important;
-}}
-
-/* 8. 버튼 디자인 설정 */
-.stButton > button {{
-    border-radius: 8px !important;
-    border: 1px solid {border_color} !important;
-    background-color: {bg_card} !important;
-    color: {text_main} !important;
-}}
-
-/* Primary 강조 버튼 */
-.stButton > button[kind="primary"] {{
-    background-color: #FF4B4B !important;
-    color: #FFFFFF !important;
-    border: none !important;
-}}
-.stButton > button[kind="primary"] p {{
-    color: #FFFFFF !important;
-}}
-</style>
-"""
-
-st.markdown(theme_css, unsafe_allow_html=True)
-
 cookie_manager = stx.CookieManager()
 
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
-# ---------------------------------------------------------
-# 🍪 쿠키 자동 로그인
-# ---------------------------------------------------------
 saved_uid = cookie_manager.get(cookie="auth_uid")
 saved_email = cookie_manager.get(cookie="auth_email")
 
@@ -294,22 +187,10 @@ with st.sidebar:
     st.image(buf.getvalue(), caption="QR코드 스캔", width=140)
 
 # ---------------------------------------------------------
-# 2. 로그인 / 회원가입 화면
+# 1. 로그인 / 회원가입 화면
 # ---------------------------------------------------------
 if not st.session_state["user"]:
-    top_col1, top_col2 = st.columns([4, 1.2])
-    with top_col1:
-        st.markdown(f"<h2 style='margin:0;'>{APP_TITLE}</h2>", unsafe_allow_html=True)
-    with top_col2:
-        if st.session_state["theme_mode"] == "dark":
-            if st.button("☀️ 라이트", use_container_width=True):
-                st.session_state["theme_mode"] = "light"
-                st.rerun()
-        else:
-            if st.button("🌙 다크", use_container_width=True):
-                st.session_state["theme_mode"] = "dark"
-                st.rerun()
-
+    st.markdown(f"<h2>{APP_TITLE}</h2>", unsafe_allow_html=True)
     st.caption("AI 식단 분석 & 영양 케어")
     st.write("")
 
@@ -358,9 +239,9 @@ if not st.session_state["user"]:
     st.stop()
 
 # ---------------------------------------------------------
-# 3. 메인 서비스 화면
+# 2. 메인 서비스 화면
 # ---------------------------------------------------------
-header_col1, header_col2, header_col3 = st.columns([2.5, 1.2, 1.2])
+header_col1, header_col2 = st.columns([3, 1])
 with header_col1:
     st.markdown(f"<h3 style='margin:0;'>{APP_TITLE}</h3>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
@@ -369,16 +250,6 @@ with header_col1:
         st.caption(f"👋 {st.session_state['user']['email']}")
 
 with header_col2:
-    if st.session_state["theme_mode"] == "dark":
-        if st.button("☀️ 라이트", use_container_width=True):
-            st.session_state["theme_mode"] = "light"
-            st.rerun()
-    else:
-        if st.button("🌙 다크", use_container_width=True):
-            st.session_state["theme_mode"] = "dark"
-            st.rerun()
-
-with header_col3:
     if st.button("로그아웃", use_container_width=True):
         st.session_state["user"] = None
         cookie_manager.delete("auth_uid")
