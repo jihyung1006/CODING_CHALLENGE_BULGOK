@@ -16,7 +16,6 @@ from firebase_admin import credentials, firestore, auth
 # =========================================================
 API_KEY = st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
 
-# Firebase 앱 중복 실행 방지 초기화
 if not firebase_admin._apps:
     try:
         firebase_secrets = dict(st.secrets["firebase"])
@@ -38,7 +37,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 세션 상태 초기화: user가 None이면 비로그인, "guest"면 게스트 모드, dict 형태면 로그인 유저
 if "user" not in st.session_state:
     st.session_state["user"] = None
 
@@ -48,17 +46,12 @@ if "user" not in st.session_state:
 with st.sidebar:
     st.header("📱 모바일 접속 QR")
     
-    # Streamlit 접속 헤더에서 현재 주소 자동 추출
     try:
         host = st.context.headers.get("host", "")
-        if host:
-            current_url = f"https://{host}"
-        else:
-            current_url = "https://share.streamlit.io"
+        current_url = f"https://{host}" if host else "https://share.streamlit.io"
     except Exception:
         current_url = "https://share.streamlit.io"
 
-    # URL 자동 QR 코드 생성
     qr = qrcode.QRCode(version=1, box_size=8, border=2)
     qr.add_data(current_url)
     qr.make(fit=True)
@@ -108,16 +101,15 @@ if not st.session_state["user"]:
             except Exception as e:
                 st.error(f"회원가입 실패: {e}")
 
-    st.stop()  # 로그인 또는 게스트 선택 전에는 하단 기능 차단
+    st.stop()
 
 # ---------------------------------------------------------
-# 3. 메인 서비스 화면 (로그인 회원 & 게스트 공통)
+# 3. 메인 서비스 화면
 # ---------------------------------------------------------
 st.title("🥗 AI 식단 분석 코치")
 
-# 로그인 정보 및 상태 표시
 if st.session_state["user"] == "guest":
-    st.warning("⚠️ 현재 **게스트 모드**로 이용 중입니다. 분석된 식단이 서버에 저장되지 않습니다.")
+    st.warning("⚠️ 현재 **게스트 모드**로 이용 중입니다. 식단 기록 및 종합 분석 기능이 저장되지 않습니다.")
     if st.button("🔑 로그인/회원가입 하러 가기", type="secondary"):
         st.session_state["user"] = None
         st.rerun()
@@ -127,7 +119,7 @@ else:
         st.session_state["user"] = None
         st.rerun()
 
-main_tab1, main_tab2 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리"])
+main_tab1, main_tab2, main_tab3 = st.tabs(["📸 식단 분석하기", "📂 내 식단 히스토리", "📊 일일 요약 분석"])
 
 # --- TAB 1: 식단 분석 및 저장 ---
 with main_tab1:
@@ -148,7 +140,7 @@ with main_tab1:
         image = Image.open(img_file)
         st.image(image, caption="분석 대상 이미지", use_container_width=True)
 
-        btn_label = "🔥 AI 영양 분석 실행 (기록 저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
+        btn_label = "🔥 AI 영양 분석 실행 (저장 안 됨)" if st.session_state["user"] == "guest" else "🔥 AI 영양 분석 & DB 저장"
         
         if st.button(btn_label, type="primary", use_container_width=True):
             current_hour = datetime.now().hour
@@ -193,7 +185,6 @@ with main_tab1:
                     
                     data = json.loads(json_str)
 
-                    # --- 로그인된 회원일 경우에만 Firestore DB 저장 ---
                     if st.session_state["user"] != "guest":
                         now = datetime.now()
                         doc_data = {
@@ -238,7 +229,6 @@ with main_tab1:
 with main_tab2:
     if st.session_state["user"] == "guest":
         st.info("🔒 게스트 모드에서는 식단 히스토리가 제공되지 않습니다.")
-        st.write("로그인 및 회원가입 후 나만의 식단 기록을 서버에 저장해 보세요!")
     else:
         st.subheader("🗓️ 내 저장된 식단 히스토리")
         
@@ -259,3 +249,83 @@ with main_tab2:
                     for f in item.get("foods", []):
                         st.write(f"- {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
                     st.caption(f"💡 조언: {item.get('health_advice')}")
+
+# --- TAB 3: 하루 종합 분석 보고서 ---
+with main_tab3:
+    if st.session_state["user"] == "guest":
+        st.info("🔒 게스트 모드에서는 일일 요약 분석 보고서가 제공되지 않습니다.")
+    else:
+        st.subheader("📊 하루 식단 종합 요약 보고서")
+        
+        # 조회 날짜 선택 (기본값: 오늘)
+        selected_date = st.date_input("조회할 날짜를 선택하세요", datetime.now()).strftime("%Y-%m-%d")
+        
+        meals_ref = db.collection("meals")
+        # 해당 유저의 해당 날짜 식단 가져오기
+        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).where("date", "==", selected_date).get()
+        
+        if not query:
+            st.warning(f"선택하신 날짜({selected_date})에 등록된 식단 기록이 없습니다.")
+        else:
+            daily_meals = [doc.to_dict() for doc in query]
+            daily_meals.sort(key=lambda x: x.get("time", ""))
+            
+            # 하루 합계 계산
+            total_cal = sum([m.get("total_calories", 0) for m in daily_meals])
+            total_carbs = sum([m.get("carbs_g", 0) for m in daily_meals])
+            total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
+            total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
+            
+            # 영양 통계 카드 표시
+            st.markdown(f"### 📈 {selected_date} 영양 섭취 총계")
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("총 칼로리", f"{total_cal} kcal")
+            col2.metric("총 탄수화물", f"{total_carbs} g")
+            col3.metric("총 단백질", f"{total_protein} g")
+            col4.metric("총 지방", f"{total_fat} g")
+            
+            st.divider()
+            
+            # 먹은 식단 목록 요약
+            st.markdown("### 🍽️ 오늘 먹은 식단 타임라인")
+            summary_text_list = []
+            for m in daily_meals:
+                foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
+                st.write(f"- **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
+                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} (칼로리: {m.get('total_calories')}kcal, 탄수화물: {m.get('carbs_g')}g, 단백질: {m.get('protein_g')}g, 지방: {m.get('fat_g')}g)")
+            
+            st.divider()
+            
+            # AI 종합 총평 리포트 생성
+            if st.button("🤖 AI 하루 식단 종합 총평 받기", type="primary", use_container_width=True):
+                with st.spinner("하루 식단을 종합 분석하여 보고서를 작성 중입니다..."):
+                    try:
+                        genai.configure(api_key=API_KEY)
+                        model = genai.GenerativeModel('gemini-3.6-flash')
+                        
+                        daily_summary = "\n".join(summary_text_list)
+                        prompt = f"""
+                        당신은 수석 영양 코치입니다. 사용자가 오늘 하루 동안 먹은 식단 리스트는 다음과 같습니다:
+                        
+                        [오늘의 식단 총계]
+                        - 총 칼로리: {total_cal} kcal
+                        - 총 탄수화물: {total_carbs} g
+                        - 총 단백질: {total_protein} g
+                        - 총 지방: {total_fat} g
+                        
+                        [식단 세부 기록]
+                        {daily_summary}
+                        
+                        위 데이터를 바탕으로 사용자의 하루 영양 섭취 상태를 종합적으로 평가하는 보고서를 작성해 주세요.
+                        반드시 다음 항목을 포함해서 친절하고 전문적인 어조로 작성해 주세요:
+                        1. 📊 오늘 식단 종합 평가 (영양 비율 및 칼로리 적절성)
+                        2. 👍 잘한 점 (칭찬할 만한 식습관)
+                        3. ⚠️ 아쉬운 점 및 개선 가이드 (부족하거나 과도한 영양소 분석)
+                        4. 💡 내일을 위한 식단 추천 팁
+                        """
+                        
+                        response = model.generate_content(prompt)
+                        st.markdown("### 📋 AI 영양 코치의 하루 종합 피드백")
+                        st.info(response.text)
+                    except Exception as e:
+                        st.error(f"종합 보고서 생성 중 오류 발생: {e}")
