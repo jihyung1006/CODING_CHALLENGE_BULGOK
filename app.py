@@ -15,7 +15,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
 # =========================================================
-# 📌 앱 기본 정보 (원하시는 이름으로 자유롭게 수정하세요)
+# 📌 앱 기본 정보
 # =========================================================
 APP_TITLE = "🥗 식단 관리 서비스"
 
@@ -105,120 +105,108 @@ st.set_page_config(
 if "theme_mode" not in st.session_state:
     st.session_state["theme_mode"] = "dark"
 
-# 🎨 안정적인 라이트/다크 CSS 커스텀
+# 🎨 완전 수정된 다크/라이트 테마 CSS
 if st.session_state["theme_mode"] == "dark":
-    theme_css = """
-    <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Pretendard', sans-serif !important;
-        background-color: #121212 !important;
-        color: #F1F5F9 !important;
-    }
-    header[data-testid="stHeader"] {
-        background-color: #121212 !important;
-    }
-    
-    /* 텍스트 요소 */
-    p, span, label, h1, h2, h3, h4, h5, h6 {
-        color: #F1F5F9 !important;
-    }
-    
-    /* 카드 / 수치 영역 */
-    div[data-testid="stMetric"] {
-        background-color: #1E1E1E !important;
-        border: 1px solid #333333 !important;
-        border-radius: 10px;
-        padding: 12px;
-    }
-    
-    /* 탭 메뉴 */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #1E1E1E !important;
-        border-radius: 8px;
-    }
-    .stTabs [data-baseweb="tab"] p {
-        color: #94A3B8 !important;
-    }
-    .stTabs [aria-selected="true"] p {
-        color: #4ADE80 !important;
-        font-weight: bold !important;
-    }
-    
-    /* 입력창 및 선택 박스 */
-    input, textarea, select, div[data-baseweb="select"] {
-        background-color: #1E1E1E !important;
-        color: #FFFFFF !important;
-        border: 1px solid #333333 !important;
-    }
-    
-    /* 접이식 영역 (Expander) */
-    div[data-testid="stExpander"] {
-        background-color: #1E1E1E !important;
-        border: 1px solid #333333 !important;
-    }
-    </style>
-    """
+    bg_main = "#121212"
+    bg_card = "#1E1E1E"
+    text_main = "#F1F5F9"
+    text_sub = "#94A3B8"
+    border_color = "#2E2E2E"
+    input_bg = "#262626"
+    active_tab = "#4ADE80"
 else:
-    theme_css = """
-    <style>
-    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    
-    html, body, [data-testid="stAppViewContainer"] {
-        font-family: 'Pretendard', sans-serif !important;
-        background-color: #FFFFFF !important;
-        color: #0F172A !important;
-    }
-    header[data-testid="stHeader"] {
-        background-color: #FFFFFF !important;
-    }
-    
-    /* 텍스트 요소 - 명확한 진한 검은색 계열 */
-    p, span, label, h1, h2, h3, h4, h5, h6 {
-        color: #0F172A !important;
-    }
-    
-    /* 카드 / 수치 영역 */
-    div[data-testid="stMetric"] {
-        background-color: #F8FAFC !important;
-        border: 1px solid #E2E8F0 !important;
-        border-radius: 10px;
-        padding: 12px;
-    }
-    
-    /* 탭 메뉴 */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: #F1F5F9 !important;
-        border-radius: 8px;
-    }
-    .stTabs [data-baseweb="tab"] p {
-        color: #64748B !important;
-    }
-    .stTabs [aria-selected="true"] p {
-        color: #2563EB !important;
-        font-weight: bold !important;
-    }
-    
-    /* 입력창 및 선택 박스 */
-    input, textarea, select {
-        background-color: #FFFFFF !important;
-        color: #0F172A !important;
-        border: 1px solid #CBD5E1 !important;
-    }
-    
-    /* 접이식 영역 (Expander) */
-    div[data-testid="stExpander"] {
-        background-color: #F8FAFC !important;
-        border: 1px solid #E2E8F0 !important;
-    }
-    
-    /* 알림창 내부 글자 지정 */
-    div[data-testid="stAlert"] p {
-        color: #0F172A !important;
-    }
-    </style>
-    """
+    bg_main = "#FFFFFF"
+    bg_card = "#F8FAFC"
+    text_main = "#0F172A"
+    text_sub = "#475569"
+    border_color = "#E2E8F0"
+    input_bg = "#F1F5F9"
+    active_tab = "#2563EB"
+
+theme_css = f"""
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+/* 전체 폰트 및 배경 적용 (메인 + 사이드바) */
+html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+    font-family: 'Pretendard', sans-serif !important;
+    background-color: {bg_main} !important;
+    color: {text_main} !important;
+}}
+
+/* 사이드바 배경 및 텍스트 색상 강제 통합 */
+[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
+    background-color: {bg_card} !important;
+    border-right: 1px solid {border_color} !important;
+}}
+[data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
+    color: {text_main} !important;
+}}
+
+/* 기본 글자색 전체 적용 */
+p, span, label, h1, h2, h3, h4, h5, h6, caption {{
+    color: {text_main} !important;
+}}
+
+/* Metric 수치 박스 */
+div[data-testid="stMetric"] {{
+    background-color: {bg_card} !important;
+    border: 1px solid {border_color} !important;
+    border-radius: 10px;
+    padding: 12px;
+}}
+
+/* Tabs 상단 탭 버튼 */
+.stTabs [data-baseweb="tab-list"] {{
+    background-color: {bg_card} !important;
+    border-radius: 8px;
+    padding: 4px;
+}}
+.stTabs [data-baseweb="tab"] p {{
+    color: {text_sub} !important;
+}}
+.stTabs [aria-selected="true"] p {{
+    color: {active_tab} !important;
+    font-weight: bold !important;
+}}
+
+/* 모든 입력창, 날짜 선택기, 셀렉트박스 */
+input, textarea, select, div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {{
+    background-color: {input_bg} !important;
+    color: {text_main} !important;
+    border: 1px solid {border_color} !important;
+    border-radius: 8px !important;
+}}
+
+/* 버튼 기본 스타일 */
+.stButton > button {{
+    border-radius: 8px !important;
+    border: 1px solid {border_color} !important;
+    background-color: {bg_card} !important;
+    color: {text_main} !important;
+}}
+
+/* Primary 버튼(예: 스캔, AI 리포트 작성 등)은 강조 배경 유지 */
+.stButton > button[kind="primary"] {{
+    background-color: #FF4B4B !important;
+    color: #FFFFFF !important;
+    border: none !important;
+}}
+
+/* 접이식 박스 (Expander) */
+div[data-testid="stExpander"] {{
+    background-color: {bg_card} !important;
+    border: 1px solid {border_color} !important;
+    border-radius: 8px !important;
+}}
+
+/* 코드 블록 / 태그 강조 표시 */
+code {{
+    background-color: {input_bg} !important;
+    color: {text_main} !important;
+}}
+</style>
+"""
 
 st.markdown(theme_css, unsafe_allow_html=True)
 
@@ -308,11 +296,11 @@ if not st.session_state["user"]:
         st.markdown(f"<h2 style='margin:0;'>{APP_TITLE}</h2>", unsafe_allow_html=True)
     with top_col2:
         if st.session_state["theme_mode"] == "dark":
-            if st.button("☀️ 라이트"):
+            if st.button("☀️ 라이트", use_container_width=True):
                 st.session_state["theme_mode"] = "light"
                 st.rerun()
         else:
-            if st.button("🌙 다크"):
+            if st.button("🌙 다크", use_container_width=True):
                 st.session_state["theme_mode"] = "dark"
                 st.rerun()
 
@@ -366,7 +354,7 @@ if not st.session_state["user"]:
 # ---------------------------------------------------------
 # 3. 메인 서비스 화면
 # ---------------------------------------------------------
-header_col1, header_col2, header_col3 = st.columns([2.3, 1.2, 1.2])
+header_col1, header_col2, header_col3 = st.columns([2.5, 1.2, 1.2])
 with header_col1:
     st.markdown(f"<h3 style='margin:0;'>{APP_TITLE}</h3>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
@@ -385,7 +373,7 @@ with header_col2:
             st.rerun()
 
 with header_col3:
-    if st.button("로그아웃", type="secondary", use_container_width=True):
+    if st.button("로그아웃", use_container_width=True):
         st.session_state["user"] = None
         cookie_manager.delete("auth_uid")
         cookie_manager.delete("auth_email")
