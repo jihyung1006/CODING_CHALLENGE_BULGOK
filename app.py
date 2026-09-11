@@ -87,7 +87,7 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 1. 페이지 레이아웃 & 모던 트렌디 CSS 스타일
+# 1. 페이지 레이아웃 & 테마 설정
 # ---------------------------------------------------------
 st.set_page_config(
     page_title="NutriCare",
@@ -96,61 +96,106 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-st.markdown("""
+# 세션 상태에 테마 모드 초기화 (기본값: dark)
+if "theme_mode" not in st.session_state:
+    st.session_state["theme_mode"] = "dark"
+
+# 테마에 따른 동적 CSS 정의
+if st.session_state["theme_mode"] == "dark":
+    theme_css = """
     <style>
     @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-    * { font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif !important; }
+    * { font-family: 'Pretendard', sans-serif !important; }
 
-    /* 메인 배경 및 레이아웃 패딩 */
     .stApp {
-        background-color: #FAFAFA;
+        background-color: #121212 !important;
+        color: #E0E0E0 !important;
     }
-    
-    /* 카드 커스텀 디자인 */
+
     div[data-testid="stMetric"] {
-        background-color: #FFFFFF;
-        border-radius: 16px;
-        padding: 16px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
-        border: 1px solid #F1F5F9;
-    }
-    
-    /* 메인 컨테이너 간격 조정 */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 3rem;
-        max-width: 600px;
-    }
-
-    /* 탭 스타일 튜닝 */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: #E2E8F0;
-        padding: 6px;
+        background-color: #1E1E1E !important;
+        border: 1px solid #2C2C2C !important;
         border-radius: 12px;
+        padding: 12px;
+    }
+    div[data-testid="stMetric"] label, div[data-testid="stMetric"] div {
+        color: #FFFFFF !important;
     }
 
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #1E1E1E !important;
+        border-radius: 10px;
+        padding: 4px;
+    }
     .stTabs [data-baseweb="tab"] {
-        height: 40px;
+        color: #A0A0A0 !important;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #2D2D2D !important;
+        color: #FFFFFF !important;
         border-radius: 8px;
-        font-weight: 600;
-        color: #64748B;
     }
 
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        background-color: #1E1E1E !important;
+        color: #FFFFFF !important;
+        border: 1px solid #333333 !important;
+    }
+
+    .stButton>button {
+        border-radius: 10px !important;
+    }
+    </style>
+    """
+else:
+    theme_css = """
+    <style>
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+    * { font-family: 'Pretendard', sans-serif !important; }
+
+    .stApp {
+        background-color: #F8FAFC !important;
+        color: #0F172A !important;
+    }
+
+    div[data-testid="stMetric"] {
+        background-color: #FFFFFF !important;
+        border: 1px solid #E2E8F0 !important;
+        border-radius: 12px;
+        padding: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    div[data-testid="stMetric"] label, div[data-testid="stMetric"] div {
+        color: #0F172A !important;
+    }
+
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: #E2E8F0 !important;
+        border-radius: 10px;
+        padding: 4px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #64748B !important;
+    }
     .stTabs [aria-selected="true"] {
         background-color: #FFFFFF !important;
         color: #0F172A !important;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+        border-radius: 8px;
     }
 
-    /* 버튼 스타일 개편 */
+    .stTextInput input, .stNumberInput input, .stSelectbox select {
+        background-color: #FFFFFF !important;
+        color: #0F172A !important;
+        border: 1px solid #CBD5E1 !important;
+    }
+
     .stButton>button {
-        border-radius: 12px;
-        font-weight: 600;
-        height: 46px;
+        border-radius: 10px !important;
     }
     </style>
-""", unsafe_allow_html=True)
+    """
+
+st.markdown(theme_css, unsafe_allow_html=True)
 
 cookie_manager = stx.CookieManager()
 
@@ -170,7 +215,7 @@ if not st.session_state["user"] and saved_uid and saved_email:
 # 📱 사이드바 설정
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚙️ Setting")
+    st.markdown("### ⚙️ 설정")
     
     user_api_key = st.text_input(
         "🔑 Gemini API Key", 
@@ -233,8 +278,21 @@ with st.sidebar:
 # 2. 로그인 / 회원가입 화면
 # ---------------------------------------------------------
 if not st.session_state["user"]:
-    st.markdown("<h1 style='text-align: center; margin-bottom: 0px;'>🥗 NutriCare</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #64748B; font-size: 0.95rem; margin-bottom: 24px;'>AI 기반 식단 분석 & 영양 케어</p>", unsafe_allow_html=True)
+    top_col1, top_col2 = st.columns([4, 1])
+    with top_col1:
+        st.markdown("<h2 style='margin:0;'>🥗 NutriCare</h2>", unsafe_allow_html=True)
+    with top_col2:
+        if st.session_state["theme_mode"] == "dark":
+            if st.button("☀️ 라이트"):
+                st.session_state["theme_mode"] = "light"
+                st.rerun()
+        else:
+            if st.button("🌙 다크"):
+                st.session_state["theme_mode"] = "dark"
+                st.rerun()
+
+    st.caption("AI 식단 분석 & 영양 케어")
+    st.write("")
 
     auth_tab1, auth_tab2 = st.tabs(["⚡️ 로그인", "✨ 회원가입"])
 
@@ -283,30 +341,40 @@ if not st.session_state["user"]:
 # ---------------------------------------------------------
 # 3. 메인 서비스 화면
 # ---------------------------------------------------------
-header_col1, header_col2 = st.columns([3, 1])
+header_col1, header_col2, header_col3 = st.columns([2.5, 1, 1])
 with header_col1:
     st.markdown("<h3 style='margin:0;'>🥗 NutriCare</h3>", unsafe_allow_html=True)
     if st.session_state["user"] == "guest":
-        st.caption("👀 게스트 모드 사용 중")
+        st.caption("👀 게스트 모드")
     else:
         st.caption(f"👋 {st.session_state['user']['email']}")
 
 with header_col2:
+    if st.session_state["theme_mode"] == "dark":
+        if st.button("☀️ 라이트", use_container_width=True):
+            st.session_state["theme_mode"] = "light"
+            st.rerun()
+    else:
+        if st.button("🌙 다크", use_container_width=True):
+            st.session_state["theme_mode"] = "dark"
+            st.rerun()
+
+with header_col3:
     if st.button("로그아웃", type="secondary", use_container_width=True):
         st.session_state["user"] = None
         cookie_manager.delete("auth_uid")
         cookie_manager.delete("auth_email")
         st.rerun()
 
-st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 분석", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이"])
+st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
+main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 스캔", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이"])
 
 # --- TAB 1: 식단 스캔 ---
 with main_tab1:
     st.write("")
     img_file = None
 
-    scan_mode = st.radio("업로드 방식 선택", ["📷 카메라 촬영", "🖼️ 갤러리 업로드"], horizontal=True, label_visibility="collapsed")
+    scan_mode = st.radio("업로드 방식", ["📷 카메라 촬영", "🖼️ 갤러리 업로드"], horizontal=True, label_visibility="collapsed")
     
     if "카메라" in scan_mode:
         camera_photo = st.camera_input("음식 사진 촬영")
