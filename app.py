@@ -103,9 +103,9 @@ st.set_page_config(
 
 # 세션 상태에 테마 모드 초기화
 if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "dark"
+    st.session_state["theme_mode"] = "light"
 
-# 🎨 완전 수정된 다크/라이트 테마 CSS
+# 🎨 테마 스타일 제어 (Streamlit 정밀 셀렉터 지정)
 if st.session_state["theme_mode"] == "dark":
     bg_main = "#121212"
     bg_card = "#1E1E1E"
@@ -120,7 +120,7 @@ else:
     bg_card = "#F8FAFC"
     text_main = "#0F172A"
     text_sub = "#475569"
-    border_color = "#CBD5E1"
+    border_color = "#E2E8F0"
     input_bg = "#F1F5F9"
     placeholder_color = "#94A3B8"
     active_tab = "#2563EB"
@@ -129,23 +129,29 @@ theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 폰트 및 배경 적용 (메인 + 사이드바) */
+/* 전체 글로벌 스타일 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
     color: {text_main} !important;
 }}
 
-/* 사이드바 배경 및 텍스트 색상 통합 */
-[data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
+/* 사이드바 배경 및 내부 정밀 스타일 */
+[data-testid="stSidebar"], 
+[data-testid="stSidebar"] > div:first-child,
+section[data-testid="stSidebar"] {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
 }}
-[data-testid="stSidebar"] *, [data-testid="stSidebar"] label, [data-testid="stSidebar"] p {{
+
+[data-testid="stSidebar"] *, 
+[data-testid="stSidebar"] label, 
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span {{
     color: {text_main} !important;
 }}
 
-/* 기본 글자색 전체 적용 */
+/* 기본 텍스트 색상 강제 지정 */
 p, span, label, h1, h2, h3, h4, h5, h6, caption {{
     color: {text_main} !important;
 }}
@@ -172,37 +178,37 @@ div[data-testid="stMetric"] {{
     font-weight: bold !important;
 }}
 
-/* 🔧 [핵심 수정] 인풋 박스 및 오른쪽 우측 버튼/아이콘 투명화 & 색상 고정 */
+/* 🔧 입력창 정밀 커스텀 (우측 아이콘 뭉개짐 해결) */
 div[data-baseweb="input"], 
-div[data-baseweb="input"] > div, 
-div[data-baseweb="base-input"] {{
+div[data-baseweb="base-input"],
+div[data-testid="stInputWithIcon"] {{
     background-color: {input_bg} !important;
-    color: {text_main} !important;
     border-color: {border_color} !important;
     border-radius: 8px !important;
 }}
 
-input, textarea {{
+div[data-baseweb="input"] input {{
     background-color: transparent !important;
     color: {text_main} !important;
 }}
 
-/* 인풋 힌트(placeholder) 색상 보정 */
-input::placeholder, textarea::placeholder {{
+div[data-baseweb="input"] input::placeholder {{
     color: {placeholder_color} !important;
 }}
 
-/* 비밀번호 보기(눈 아이콘) 및 숫자 증감 (+/-) 버튼 배경색 해결 */
-div[data-baseweb="input"] button, 
+/* 비밀번호 눈동자 아이콘 / 숫자 증감 버튼 우측 박스 투명 처리 */
+div[data-baseweb="input"] [data-baseweb="icon"],
+div[data-baseweb="input"] button,
 div[data-baseweb="input"] div[role="button"],
 button[aria-label="Decrease value"],
 button[aria-label="Increase value"] {{
-    background-color: {input_bg} !important;
+    background-color: transparent !important;
     color: {text_main} !important;
+    fill: {text_main} !important;
     border: none !important;
 }}
 
-/* 버튼 기본 스타일 */
+/* 일반 버튼 스타일 */
 .stButton > button {{
     border-radius: 8px !important;
     border: 1px solid {border_color} !important;
@@ -210,7 +216,7 @@ button[aria-label="Increase value"] {{
     color: {text_main} !important;
 }}
 
-/* Primary 버튼 */
+/* Primary 강조 버튼 */
 .stButton > button[kind="primary"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
@@ -224,7 +230,7 @@ div[data-testid="stExpander"] {{
     border-radius: 8px !important;
 }}
 
-/* 코드 블록 / 태그 강조 표시 */
+/* 코드 및 서식 텍스트 */
 code {{
     background-color: {input_bg} !important;
     color: {text_main} !important;
