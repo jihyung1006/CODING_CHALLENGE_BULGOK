@@ -1,8 +1,7 @@
 streamlit
-google-genai
 google-generativeai
 pillow
-pydantic
 qrcode
 firebase-admin
 extra-streamlit-components
+fpdf2
