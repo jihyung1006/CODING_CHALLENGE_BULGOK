@@ -101,11 +101,11 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 세션 상태에 테마 모드 초기화
+# 세션 상태에 테마 모드 초기화 (기본: light)
 if "theme_mode" not in st.session_state:
-    st.session_state["theme_mode"] = "dark"
+    st.session_state["theme_mode"] = "light"
 
-# 🎨 테마 모드별 변수 분기
+# 🎨 테마 모드별 변수 지정
 if st.session_state["theme_mode"] == "dark":
     bg_main = "#121212"
     bg_card = "#1E1E1E"
@@ -115,9 +115,9 @@ if st.session_state["theme_mode"] == "dark":
     border_color = "#383838"
     active_tab = "#4ADE80"
 else:
-    bg_main = "#F8FAFC"
-    bg_card = "#FFFFFF"
-    bg_input = "#F1F5F9"
+    bg_main = "#FFFFFF"
+    bg_card = "#F8FAFC"
+    bg_input = "#FFFFFF"
     text_main = "#1A202C"
     text_sub = "#4A5568"
     border_color = "#E2E8F0"
@@ -127,59 +127,32 @@ theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 배경 및 기본 글자색 */
+/* 전체 앱 최상위 스킨 적용 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
     color: {text_main} !important;
 }}
 
-/* 사이드바 배경 */
+/* 사이드바 */
 [data-testid="stSidebar"], section[data-testid="stSidebar"] {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
 }}
 
-/* 모든 텍스트 라벨 색상 보정 */
+/* 기본 글자색 지정 */
 p, span, label, h1, h2, h3, h4, h5, h6, div {{
     color: {text_main} !important;
 }}
 
-/* 입력 영역, 날짜 선택 창, 드롭다운 배경 강제 적용 */
-div[data-baseweb="input"],
-div[data-baseweb="base-input"],
-div[data-baseweb="select"],
-div[data-baseweb="popover"],
-div[data-baseweb="calendar"] {{
-    background-color: {bg_input} !important;
-    border-color: {border_color} !important;
-    color: {text_main} !important;
-}}
-
-input, textarea {{
-    background-color: transparent !important;
-    color: {text_main} !important;
-}}
-
-/* 파일 업로더 배경 보정 */
-section[data-testid="stFileUploadDropzone"] {{
-    background-color: {bg_input} !important;
-    border: 1px dashed {border_color} !important;
-}}
-
-section[data-testid="stFileUploadDropzone"] span,
-section[data-testid="stFileUploadDropzone"] small {{
-    color: {text_main} !important;
-}}
-
-/* Metric 수치 및 Expander 박스 */
+/* 카드, 메트릭, 엑스팬더 */
 div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     background-color: {bg_card} !important;
     border: 1px solid {border_color} !important;
     border-radius: 10px;
 }}
 
-/* Tabs 상단 탭 버튼 */
+/* 탭 UI */
 .stTabs [data-baseweb="tab-list"] {{
     background-color: {bg_card} !important;
     border-radius: 8px;
@@ -193,7 +166,7 @@ div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     font-weight: bold !important;
 }}
 
-/* 일반 버튼 스타일 */
+/* 버튼 스타일링 */
 .stButton > button {{
     border-radius: 8px !important;
     border: 1px solid {border_color} !important;
@@ -201,7 +174,6 @@ div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     color: {text_main} !important;
 }}
 
-/* Primary 강조 버튼 */
 .stButton > button[kind="primary"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
