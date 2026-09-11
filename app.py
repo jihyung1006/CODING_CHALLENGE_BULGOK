@@ -111,16 +111,18 @@ if st.session_state["theme_mode"] == "dark":
     bg_card = "#1E1E1E"
     text_main = "#F1F5F9"
     text_sub = "#94A3B8"
-    border_color = "#2E2E2E"
+    border_color = "#333333"
     input_bg = "#262626"
+    placeholder_color = "#666666"
     active_tab = "#4ADE80"
 else:
     bg_main = "#FFFFFF"
     bg_card = "#F8FAFC"
     text_main = "#0F172A"
     text_sub = "#475569"
-    border_color = "#E2E8F0"
+    border_color = "#CBD5E1"
     input_bg = "#F1F5F9"
+    placeholder_color = "#94A3B8"
     active_tab = "#2563EB"
 
 theme_css = f"""
@@ -134,7 +136,7 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     color: {text_main} !important;
 }}
 
-/* 사이드바 배경 및 텍스트 색상 강제 통합 */
+/* 사이드바 배경 및 텍스트 색상 통합 */
 [data-testid="stSidebar"], section[data-testid="stSidebar"] > div {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
@@ -170,12 +172,34 @@ div[data-testid="stMetric"] {{
     font-weight: bold !important;
 }}
 
-/* 모든 입력창, 날짜 선택기, 셀렉트박스 */
-input, textarea, select, div[data-baseweb="select"] > div, div[data-baseweb="input"] > div {{
+/* 🔧 [핵심 수정] 인풋 박스 및 오른쪽 우측 버튼/아이콘 투명화 & 색상 고정 */
+div[data-baseweb="input"], 
+div[data-baseweb="input"] > div, 
+div[data-baseweb="base-input"] {{
     background-color: {input_bg} !important;
     color: {text_main} !important;
-    border: 1px solid {border_color} !important;
+    border-color: {border_color} !important;
     border-radius: 8px !important;
+}}
+
+input, textarea {{
+    background-color: transparent !important;
+    color: {text_main} !important;
+}}
+
+/* 인풋 힌트(placeholder) 색상 보정 */
+input::placeholder, textarea::placeholder {{
+    color: {placeholder_color} !important;
+}}
+
+/* 비밀번호 보기(눈 아이콘) 및 숫자 증감 (+/-) 버튼 배경색 해결 */
+div[data-baseweb="input"] button, 
+div[data-baseweb="input"] div[role="button"],
+button[aria-label="Decrease value"],
+button[aria-label="Increase value"] {{
+    background-color: {input_bg} !important;
+    color: {text_main} !important;
+    border: none !important;
 }}
 
 /* 버튼 기본 스타일 */
@@ -186,7 +210,7 @@ input, textarea, select, div[data-baseweb="select"] > div, div[data-baseweb="inp
     color: {text_main} !important;
 }}
 
-/* Primary 버튼(예: 스캔, AI 리포트 작성 등)은 강조 배경 유지 */
+/* Primary 버튼 */
 .stButton > button[kind="primary"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
