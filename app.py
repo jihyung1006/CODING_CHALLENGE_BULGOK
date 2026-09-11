@@ -109,38 +109,66 @@ if "theme_mode" not in st.session_state:
 if st.session_state["theme_mode"] == "dark":
     bg_main = "#121212"
     bg_card = "#1E1E1E"
-    text_main = "#F1F5F9"
-    text_sub = "#94A3B8"
-    border_color = "#333333"
+    bg_input = "#2A2A2A"
+    text_main = "#FFFFFF"
+    text_sub = "#AAAAAA"
+    border_color = "#383838"
     active_tab = "#4ADE80"
 else:
     bg_main = "#F8FAFC"
     bg_card = "#FFFFFF"
-    text_main = "#0F172A"
-    text_sub = "#475569"
-    border_color = "#CBD5E0"
+    bg_input = "#F1F5F9"
+    text_main = "#1A202C"
+    text_sub = "#4A5568"
+    border_color = "#E2E8F0"
     active_tab = "#2563EB"
 
 theme_css = f"""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
-/* 전체 배경 및 폰트 적용 */
+/* 전체 배경 및 기본 글자색 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
     font-family: 'Pretendard', sans-serif !important;
     background-color: {bg_main} !important;
     color: {text_main} !important;
 }}
 
-/* 사이드바 영역 배경 지정 */
-[data-testid="stSidebar"], 
-section[data-testid="stSidebar"] {{
+/* 사이드바 배경 */
+[data-testid="stSidebar"], section[data-testid="stSidebar"] {{
     background-color: {bg_card} !important;
     border-right: 1px solid {border_color} !important;
 }}
 
-/* 기본 텍스트 색상 적용 */
-p, span, label, h1, h2, h3, h4, h5, h6 {{
+/* 모든 텍스트 라벨 색상 보정 */
+p, span, label, h1, h2, h3, h4, h5, h6, div {{
+    color: {text_main} !important;
+}}
+
+/* 입력 영역, 날짜 선택 창, 드롭다운 배경 강제 적용 */
+div[data-baseweb="input"],
+div[data-baseweb="base-input"],
+div[data-baseweb="select"],
+div[data-baseweb="popover"],
+div[data-baseweb="calendar"] {{
+    background-color: {bg_input} !important;
+    border-color: {border_color} !important;
+    color: {text_main} !important;
+}}
+
+input, textarea {{
+    background-color: transparent !important;
+    color: {text_main} !important;
+}}
+
+/* 파일 업로더 배경 보정 */
+section[data-testid="stFileUploadDropzone"] {{
+    background-color: {bg_input} !important;
+    border: 1px dashed {border_color} !important;
+}}
+
+section[data-testid="stFileUploadDropzone"] span,
+section[data-testid="stFileUploadDropzone"] small {{
     color: {text_main} !important;
 }}
 
@@ -178,6 +206,9 @@ div[data-testid="stMetric"], div[data-testid="stExpander"] {{
     background-color: #FF4B4B !important;
     color: #FFFFFF !important;
     border: none !important;
+}}
+.stButton > button[kind="primary"] p {{
+    color: #FFFFFF !important;
 }}
 </style>
 """
