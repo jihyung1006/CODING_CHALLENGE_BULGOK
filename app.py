@@ -26,7 +26,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 기본 폰트 및 최소한의 레이아웃 다듬기용 CSS (테마 색상은 Streamlit 내장 시스템 사용)
+# 기본 폰트 및 최소한의 레이아웃 다듬기용 CSS
 st.markdown("""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
@@ -257,7 +257,9 @@ with header_col2:
         st.rerun()
 
 st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
-main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 스캔", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이"])
+main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs(
+    ["📸 스캔", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이", "📖 사용방법"]
+)
 
 # --- TAB 1: 식단 스캔 ---
 with main_tab1:
@@ -500,3 +502,63 @@ with main_tab4:
             st.bar_chart(chart_data)
         else:
             st.info("식단을 기록하시면 섭취 칼로리 변화 그래프를 볼 수 있습니다!")
+
+# --- TAB 5: 사용방법 가이드 (슬라이드 방식) ---
+with main_tab5:
+    st.write("")
+    st.markdown("### 💡 앱 200% 활용 가이드")
+    st.caption("슬라이더를 넘기며 주요 기능을 빠르게 확인해 보세요!")
+    
+    # 슬라이드 컨트롤러 (1 ~ 4단계)
+    step = st.select_slider(
+        "가이드 단계 선택",
+        options=[1, 2, 3, 4],
+        format_func=lambda x: f"STEP {x}",
+        label_visibility="collapsed"
+    )
+
+    st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
+
+    if step == 1:
+        st.markdown("""
+        > #### 📸 STEP 1. 식단 사진 찍기 & 스캔
+        > 
+        > * **카메라**로 음식 사진을 직접 촬영하거나 **갤러리**에서 이미지를 업로드하세요.
+        > * `⚡️ 식단 스캔` 버튼을 누르면 AI가 음식 이름, 칼로리, 탄/단/지를 빠르게 분석합니다.
+        > * 현재 시간에 따라 **아침 / 점심 / 저녁 / 야식**이 자동으로 분주해집니다.
+        """)
+
+    elif step == 2:
+        st.markdown("""
+        > #### 💧 STEP 2. 수분 섭취 & 목표 관리
+        > 
+        > * **사이드바(왼쪽 메뉴)**에서 하루 목표 칼로리를 자유롭게 수정할 수 있습니다.
+        > * 물을 마실 때마다 **`💧 +250ml`** 버튼을 눌러 수분 섭취량을 손쉽게 기록하세요.
+        > * 오늘 목표량(2,000ml) 대비 마신 양이 진행 바(Progress Bar)로 한눈에 보입니다.
+        """)
+
+    elif step == 3:
+        st.markdown("""
+        > #### 📊 STEP 3. 하루 종합 AI 리포트
+        > 
+        > * **`일일 리포트`** 탭에서 지정한 날짜의 섭취 영양 성분을 한눈에 파악하세요.
+        > * `✨ 종합 AI 리포트 작성`을 누르면 AI 수석 코치가 **하루 총평 및 맞춤 가이드**를 줍니다.
+        > * `📄 PDF 리포트 다운로드` 버튼으로 오늘 기록을 파일로 간직할 수도 있습니다.
+        """)
+
+    elif step == 4:
+        st.markdown("""
+        > #### 📲 STEP 4. 모바일 연결 & 히스토리
+        > 
+        > * **`히스토리`** 탭에서 과거에 먹었던 식단 기록을 언제든지 복기해보세요.
+        > * 사이드바 아래쪽의 **QR 코드**를 스마트폰 카메라로 찍어 바로 모바일 웹으로 연결할 수 있습니다.
+        """)
+
+    st.markdown("---")
+    col_prev, col_next = st.columns(2)
+    with col_prev:
+        if step > 1:
+            st.caption(f"⬅️ 이전: STEP {step - 1}")
+    with col_next:
+        if step < 4:
+            st.caption(f"➡️ 다음: STEP {step + 1}")
