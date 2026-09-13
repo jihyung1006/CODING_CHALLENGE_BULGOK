@@ -110,12 +110,18 @@ def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_f
     return bytes(pdf.output())
 
 # ---------------------------------------------------------
-# 🍪 쿠키 및 로그인 관리
+# 🍪 쿠키 및 세션 관리
 # ---------------------------------------------------------
 cookie_manager = stx.CookieManager()
 
 if "user" not in st.session_state:
     st.session_state["user"] = None
+
+if "current_page" not in st.session_state:
+    st.session_state["current_page"] = "home"
+
+if "guide_step" not in st.session_state:
+    st.session_state["guide_step"] = 1
 
 saved_uid = cookie_manager.get(cookie="auth_uid")
 saved_email = cookie_manager.get(cookie="auth_email")
@@ -127,8 +133,19 @@ if not st.session_state["user"] and saved_uid and saved_email:
 # 📱 사이드바 설정
 # ---------------------------------------------------------
 with st.sidebar:
+    st.markdown("### 📌 메뉴 이동")
+    if st.button("🏠 메인 서비스", use_container_width=True):
+        st.session_state["current_page"] = "home"
+        st.rerun()
+
+    if st.button("📖 사용방법 가이드", use_container_width=True):
+        st.session_state["current_page"] = "guide"
+        st.session_state["guide_step"] = 1
+        st.rerun()
+
+    st.divider()
+
     st.markdown("### ⚙️ 설정")
-    
     user_api_key = st.text_input(
         "🔑 Gemini API Key", 
         type="password",
@@ -238,9 +255,86 @@ if not st.session_state["user"]:
 
     st.stop()
 
-# ---------------------------------------------------------
-# 2. 메인 서비스 화면
-# ---------------------------------------------------------
+# =========================================================
+# 📄 PAGE 2: 사용방법 전용 화면 (사이드바 선택 시)
+# =========================================================
+if st.session_state["current_page"] == "guide":
+    st.markdown("## 📖 앱 사용방법 가이드")
+    st.caption("버튼을 눌러 좌우 슬라이드로 한눈에 확인해 보세요.")
+    st.write("")
+
+    TOTAL_STEPS = 4
+    current_step = st.session_state["guide_step"]
+
+    # 빠른 슬라이드 번호 이동 버튼 그룹
+    st.write("**단계 바로가기**")
+    btn_cols = st.columns(TOTAL_STEPS)
+    for i in range(1, TOTAL_STEPS + 1):
+        with btn_cols[i - 1]:
+            b_type = "primary" if i == current_step else "secondary"
+            if st.button(f"STEP {i}", key=f"step_btn_{i}", type=b_type, use_container_width=True):
+                st.session_state["guide_step"] = i
+                st.rerun()
+
+    st.write("")
+
+    # 슬라이드 내용 출력 카드 영역
+    with st.container(border=True):
+        if current_step == 1:
+            st.markdown("### 📸 STEP 1. 식단 사진 찍기 & 스캔")
+            st.markdown("""
+            * **카메라 촬영** 또는 **갤러리 파일 선택**으로 먹은 음식을 업로드하세요.
+            * `⚡️ 식단 스캔` 버튼을 누르면 AI가 영양 성분(칼로리, 탄/단/지)을 자동 분석합니다.
+            * 촬영 시간에 맞춰 **아침, 점심, 저녁, 야식**으로 알아서 등록됩니다.
+            """)
+        elif current_step == 2:
+            st.markdown("### 💧 STEP 2. 수분 섭취 & 목표 칼로리 관리")
+            st.markdown("""
+            * **왼쪽 사이드바 메뉴**를 통해 언제든지 하루 목표 칼로리를 변경할 수 있습니다.
+            * 물을 마셨다면 `💧 +250ml` 버튼을 눌러 하루 수분 섭취 목표(2,000ml)를 채워보세요.
+            """)
+        elif current_step == 3:
+            st.markdown("### 📊 STEP 3. 일일 리포트 & AI 코칭")
+            st.markdown("""
+            * **`일일 리포트`** 메뉴에서 오늘 하루 먹은 전체 영양 정보와 비율을 점검합니다.
+            * AI 수석 코치가 발행해 주는 피드백을 확인하고 필요하면 **PDF 리포트로 다운로드**하여 보관하세요.
+            """)
+        elif current_step == 4:
+            st.markdown("### 📲 STEP 4. 기록 조회 & 모바일 QR 접속")
+            st.markdown("""
+            * **`히스토리`** 탭을 통해 지금까지 누적된 식단 일기를 언제든 다시 찾아볼 수 있습니다.
+            * 사이드바 하단에 제공되는 **QR 코드를 촬영**하면 모바일 기기에서도 동일하게 사용할 수 있습니다.
+            """)
+
+    st.write("")
+
+    # 좌우 넘기기 컨트롤 버튼
+    nav_col1, nav_col2, nav_col3 = st.columns([2, 3, 2])
+    with nav_col1:
+        if current_step > 1:
+            if st.button("⬅️ 이전 슬라이드", use_container_width=True):
+                st.session_state["guide_step"] -= 1
+                st.rerun()
+
+    with nav_col2:
+        st.markdown(f"<p style='text-align: center; margin-top: 8px;'><b>{current_step} / {TOTAL_STEPS} 페이지</b></p>", unsafe_allow_html=True)
+
+    with nav_col3:
+        if current_step < TOTAL_STEPS:
+            if st.button("다음 슬라이드 ➡️", type="primary", use_container_width=True):
+                st.session_state["guide_step"] += 1
+                st.rerun()
+
+    st.divider()
+    if st.button("🏠 메인 화면으로 돌아가기", use_container_width=True):
+        st.session_state["current_page"] = "home"
+        st.rerun()
+
+    st.stop()
+
+# =========================================================
+# 🏠 PAGE 1: 메인 서비스 화면
+# =========================================================
 header_col1, header_col2 = st.columns([3, 1])
 with header_col1:
     st.markdown(f"<h3 style='margin:0;'>{APP_TITLE}</h3>", unsafe_allow_html=True)
@@ -257,9 +351,7 @@ with header_col2:
         st.rerun()
 
 st.markdown("<div style='margin-bottom: 8px;'></div>", unsafe_allow_html=True)
-main_tab1, main_tab2, main_tab3, main_tab4, main_tab5 = st.tabs(
-    ["📸 스캔", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이", "📖 사용방법"]
-)
+main_tab1, main_tab2, main_tab3, main_tab4 = st.tabs(["📸 스캔", "📂 히스토리", "📊 일일 리포트", "📈 주간 추이"])
 
 # --- TAB 1: 식단 스캔 ---
 with main_tab1:
@@ -502,63 +594,3 @@ with main_tab4:
             st.bar_chart(chart_data)
         else:
             st.info("식단을 기록하시면 섭취 칼로리 변화 그래프를 볼 수 있습니다!")
-
-# --- TAB 5: 사용방법 가이드 (슬라이드 방식) ---
-with main_tab5:
-    st.write("")
-    st.markdown("### 💡 앱 200% 활용 가이드")
-    st.caption("슬라이더를 넘기며 주요 기능을 빠르게 확인해 보세요!")
-    
-    # 슬라이드 컨트롤러 (1 ~ 4단계)
-    step = st.select_slider(
-        "가이드 단계 선택",
-        options=[1, 2, 3, 4],
-        format_func=lambda x: f"STEP {x}",
-        label_visibility="collapsed"
-    )
-
-    st.markdown("<div style='margin-bottom: 12px;'></div>", unsafe_allow_html=True)
-
-    if step == 1:
-        st.markdown("""
-        > #### 📸 STEP 1. 식단 사진 찍기 & 스캔
-        > 
-        > * **카메라**로 음식 사진을 직접 촬영하거나 **갤러리**에서 이미지를 업로드하세요.
-        > * `⚡️ 식단 스캔` 버튼을 누르면 AI가 음식 이름, 칼로리, 탄/단/지를 빠르게 분석합니다.
-        > * 현재 시간에 따라 **아침 / 점심 / 저녁 / 야식**이 자동으로 분주해집니다.
-        """)
-
-    elif step == 2:
-        st.markdown("""
-        > #### 💧 STEP 2. 수분 섭취 & 목표 관리
-        > 
-        > * **사이드바(왼쪽 메뉴)**에서 하루 목표 칼로리를 자유롭게 수정할 수 있습니다.
-        > * 물을 마실 때마다 **`💧 +250ml`** 버튼을 눌러 수분 섭취량을 손쉽게 기록하세요.
-        > * 오늘 목표량(2,000ml) 대비 마신 양이 진행 바(Progress Bar)로 한눈에 보입니다.
-        """)
-
-    elif step == 3:
-        st.markdown("""
-        > #### 📊 STEP 3. 하루 종합 AI 리포트
-        > 
-        > * **`일일 리포트`** 탭에서 지정한 날짜의 섭취 영양 성분을 한눈에 파악하세요.
-        > * `✨ 종합 AI 리포트 작성`을 누르면 AI 수석 코치가 **하루 총평 및 맞춤 가이드**를 줍니다.
-        > * `📄 PDF 리포트 다운로드` 버튼으로 오늘 기록을 파일로 간직할 수도 있습니다.
-        """)
-
-    elif step == 4:
-        st.markdown("""
-        > #### 📲 STEP 4. 모바일 연결 & 히스토리
-        > 
-        > * **`히스토리`** 탭에서 과거에 먹었던 식단 기록을 언제든지 복기해보세요.
-        > * 사이드바 아래쪽의 **QR 코드**를 스마트폰 카메라로 찍어 바로 모바일 웹으로 연결할 수 있습니다.
-        """)
-
-    st.markdown("---")
-    col_prev, col_next = st.columns(2)
-    with col_prev:
-        if step > 1:
-            st.caption(f"⬅️ 이전: STEP {step - 1}")
-    with col_next:
-        if step < 4:
-            st.caption(f"➡️ 다음: STEP {step + 1}")
