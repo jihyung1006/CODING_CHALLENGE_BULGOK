@@ -87,29 +87,37 @@ def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
                 raise e
 
 # =========================================================
-# 📄 웹 기반 깔끔한 PDF 출력 컴포넌트 (한글 완벽 지원)
+# 📄 웹 기반 깔끔한 PDF 출력 컴포넌트 (다크모드 완벽 고정)
 # =========================================================
 def render_pdf_download_button(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
     meals_html = ""
     for m in daily_meals:
         foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
-        meals_html += f"<li><b>[{m.get('meal_type')}]</b> {foods_str} — <span>{m.get('total_calories')} kcal</span></li>"
+        meals_html += f"<li><b>[{m.get('meal_type')}]</b> {foods_str} — <span style='color: #166534; font-weight: bold;'>{m.get('total_calories')} kcal</span></li>"
 
     formatted_feedback = feedback_text.replace("\n", "<br>")
 
     html_content = f"""
     <!DOCTYPE html>
-    <html>
+    <html style="color-scheme: light;">
     <head>
         <meta charset="utf-8">
         <style>
             @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
-            body {{
-                font-family: 'Pretendard', sans-serif;
-                padding: 30px;
-                color: #1e293b;
+            
+            :root {{
+                color-scheme: light !important;
+            }}
+
+            html, body {{
+                background-color: #ffffff !important;
+                color: #1e293b !important;
+                font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+                padding: 20px;
+                margin: 0;
                 line-height: 1.6;
             }}
+
             .header {{
                 border-bottom: 2px solid #22c55e;
                 padding-bottom: 12px;
@@ -117,17 +125,18 @@ def render_pdf_download_button(date_str, total_cal, total_carbs, total_protein, 
             }}
             .header h1 {{
                 margin: 0;
-                color: #15803d;
+                color: #15803d !important;
                 font-size: 24px;
             }}
             .date {{
-                color: #64748b;
+                color: #64748b !important;
                 font-size: 14px;
+                margin-top: 4px;
             }}
             .summary-box {{
-                background-color: #f0fdf4;
-                border: 1px solid #bbf7d0;
-                border-radius: 8px;
+                background-color: #f0fdf4 !important;
+                border: 1px solid #bbf7d0 !important;
+                border-radius: 12px;
                 padding: 16px;
                 margin-bottom: 24px;
                 display: flex;
@@ -137,59 +146,68 @@ def render_pdf_download_button(date_str, total_cal, total_carbs, total_protein, 
                 text-align: center;
             }}
             .stat-title {{
-                font-size: 12px;
-                color: #166534;
+                font-size: 13px;
+                color: #166534 !important;
+                font-weight: 600;
             }}
             .stat-val {{
-                font-size: 18px;
-                font-weight: bold;
-                color: #15803d;
+                font-size: 20px;
+                font-weight: 700;
+                color: #15803d !important;
+                margin-top: 4px;
             }}
             .section-title {{
                 font-size: 16px;
                 font-weight: bold;
+                color: #0f172a !important;
                 border-left: 4px solid #22c55e;
-                padding-left: 8px;
+                padding-left: 10px;
                 margin-top: 24px;
                 margin-bottom: 12px;
             }}
             ul {{
                 list-style-type: none;
                 padding-left: 0;
+                margin: 0;
             }}
             li {{
-                padding: 8px 12px;
-                background-color: #f8fafc;
-                margin-bottom: 6px;
-                border-radius: 6px;
+                padding: 10px 14px;
+                background-color: #f8fafc !important;
+                color: #334155 !important;
+                margin-bottom: 8px;
+                border-radius: 8px;
                 font-size: 14px;
+                border: 1px solid #f1f5f9;
             }}
             .feedback-box {{
-                background-color: #f8fafc;
-                border: 1px solid #e2e8f0;
+                background-color: #f8fafc !important;
+                border: 1px solid #e2e8f0 !important;
+                color: #334155 !important;
                 padding: 16px;
                 border-radius: 8px;
                 font-size: 14px;
+                line-height: 1.7;
                 white-space: pre-wrap;
             }}
             .btn-print {{
                 background-color: #22c55e;
-                color: white;
+                color: #ffffff !important;
                 border: none;
-                padding: 10px 18px;
-                font-size: 14px;
+                padding: 12px 20px;
+                font-size: 15px;
                 font-weight: bold;
                 border-radius: 8px;
                 cursor: pointer;
                 width: 100%;
-                margin-top: 10px;
+                margin-top: 20px;
+                transition: background-color 0.2s;
             }}
             .btn-print:hover {{
                 background-color: #16a34a;
             }}
             @media print {{
                 .btn-print {{ display: none; }}
-                body {{ padding: 0; }}
+                body {{ padding: 0; background-color: #ffffff !important; }}
             }}
         </style>
     </head>
@@ -217,7 +235,7 @@ def render_pdf_download_button(date_str, total_cal, total_carbs, total_protein, 
     </html>
     """
 
-    st.components.v1.html(html_content, height=480, scrolling=True)
+    st.components.v1.html(html_content, height=520, scrolling=True)
 
 # ---------------------------------------------------------
 # 🍪 쿠키 및 세션 관리
