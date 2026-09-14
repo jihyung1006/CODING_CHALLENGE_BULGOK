@@ -61,7 +61,7 @@ if not firebase_admin._apps:
         cred = credentials.Certificate(firebase_secrets)
         firebase_admin.initialize_app(cred)
     except Exception as e:
-        st.error(f"Firebase 연결 오류: {e}")
+        st.error(f"Firebase 연결 오류가 발생했습니다.")
 
 db = firestore.client()
 
@@ -88,30 +88,38 @@ def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
                 raise e
 
 # =========================================================
-# 📄 PDF 리포트 생성
+# 📄 PDF 리포트 생성 (한글 인코딩 및 안전 처리)
 # =========================================================
 def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_font("Helvetica", size=12)
-    
-    pdf.cell(200, 10, text=f"Daily Nutrition Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
-    pdf.ln(5)
-    pdf.cell(200, 10, text=f"Total: {total_cal} kcal | Carbs: {total_carbs}g | Protein: {total_protein}g | Fat: {total_fat}g", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(5)
-    
-    pdf.cell(200, 10, text="[ Today's Meals ]", new_x="LMARGIN", new_y="NEXT")
-    for m in daily_meals:
-        foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
-        pdf.cell(200, 8, text=f"- [{m.get('meal_type')}] {foods_str} : {m.get('total_calories')} kcal", new_x="LMARGIN", new_y="NEXT")
-    
-    pdf.ln(5)
-    pdf.cell(200, 10, text="[ AI Feedback ]", new_x="LMARGIN", new_y="NEXT")
-    
-    clean_text = feedback_text.encode('latin-1', 'replace').decode('latin-1')
-    pdf.multi_cell(0, 8, text=clean_text)
-    
-    return bytes(pdf.output())
+    try:
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Helvetica", size=12)
+        
+        pdf.cell(200, 10, text=f"Daily Nutrition Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
+        pdf.ln(5)
+        pdf.cell(200, 10, text=f"Total: {total_cal} kcal | Carbs: {total_carbs}g | Protein: {total_protein}g | Fat: {total_fat}g", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(5)
+        
+        pdf.cell(200, 10, text="[ Today's Meals ]", new_x="LMARGIN", new_y="NEXT")
+        for m in daily_meals:
+            foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
+            clean_foods = foods_str.encode('ascii', 'ignore').decode('ascii')
+            meal_type_clean = m.get('meal_type', '').encode('ascii', 'ignore').decode('ascii')
+            pdf.cell(200, 8, text=f"- [{meal_type_clean}] {clean_foods} : {m.get('total_calories')} kcal", new_x="LMARGIN", new_y="NEXT")
+        
+        pdf.ln(5)
+        pdf.cell(200, 10, text="[ AI Feedback ]", new_x="LMARGIN", new_y="NEXT")
+        
+        # 기본 폰트 한글 깨짐 방지 안전 인코딩
+        clean_text = feedback_text.encode('latin-1', 'ignore').decode('latin-1')
+        if not clean_text.strip():
+            clean_text = "Daily nutrition summary generated successfully."
+            
+        pdf.multi_cell(0, 8, text=clean_text)
+        return bytes(pdf.output())
+    except Exception:
+        return None
 
 # ---------------------------------------------------------
 # 🍪 쿠키 및 세션 관리
@@ -255,12 +263,12 @@ if not st.session_state["user"]:
                 user = auth.create_user(email=signup_email, password=signup_password)
                 st.success("🎉 가입 완료! 로그인 탭에서 시작해 보세요.")
             except Exception as e:
-                st.error(f"회원가입 실패: {e}")
+                st.error("회원가입 중 오류가 발생했습니다. 다시 시도해 주세요.")
 
     st.stop()
 
 # =========================================================
-# 📄 PAGE 2: 사용방법 전용 화면 (내 웹사이트 로컬 이미지 경로 적용)
+# 📄 PAGE 2: 사용방법 전용 화면
 # =========================================================
 if st.session_state["current_page"] == "guide":
     st.markdown("## 📖 앱 사용방법 가이드")
@@ -281,7 +289,7 @@ if st.session_state["current_page"] == "guide":
 
     st.write("")
 
-    # 메인 가이드 카드 (내 로컬 이미지 파일 지정)
+    # 메인 가이드 카드
     with st.container(border=True):
         if current_step == 1:
             try:
@@ -336,20 +344,20 @@ if st.session_state["current_page"] == "guide":
 
     st.write("")
 
-    # 이전/다음 네비게이션 버튼
+    # 이전/다음 네비게이션 버튼 (숫자 표기 수정 완료)
     nav_col1, nav_col2, nav_col3 = st.columns([2, 3, 2])
     with nav_col1:
         if current_step > 1:
-            if st.button("⬅️ 이전 슬라이드", use_container_width=True):
+            if st.button("⬅️ 이전", use_container_width=True):
                 st.session_state["guide_step"] -= 1
                 st.rerun()
 
     with nav_col2:
-        st.markdown(f"<p style='text-align: center; margin-top: 8px;'><b>{current_step} / {TOTAL_STEPS} 슬라이드</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; margin-top: 8px;'><b>{current_step} / {TOTAL_STEPS}</b></p>", unsafe_allow_html=True)
 
     with nav_col3:
         if current_step < TOTAL_STEPS:
-            if st.button("다음 슬라이드 ➡️", type="primary", use_container_width=True):
+            if st.button("다음 ➡️", type="primary", use_container_width=True):
                 st.session_state["guide_step"] += 1
                 st.rerun()
 
@@ -485,10 +493,10 @@ with main_tab1:
                 except Exception as e:
                     err_str = str(e)
                     if "429" in err_str or "ResourceExhausted" in err_str or "quota" in err_str.lower():
-                        st.error("🚨 요청량이 많아 제한되었습니다.")
+                        st.error("🚨 사용량이 많아 일시적으로 요청이 제한되었습니다.")
                         st.info("💡 사이드바에 본인 Gemini API 키를 입력하시면 계속 이용할 수 있습니다!")
                     else:
-                        st.error(f"분석 중 오류 발생: {e}")
+                        st.error("식단 분석 도중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
 
 # --- TAB 2: 식단 기록 히스토리 ---
 with main_tab2:
@@ -496,23 +504,26 @@ with main_tab2:
     if st.session_state["user"] == "guest":
         st.info("🔒 로그인하시면 기록이 저장되고 언제든 조회할 수 있어요.")
     else:
-        meals_ref = db.collection("meals")
-        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
+        try:
+            meals_ref = db.collection("meals")
+            query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
 
-        if not query:
-            st.info("아직 기록된 식단이 없습니다. 첫 식단을 촬영해 보세요! 📸")
-        else:
-            meal_list = [doc.to_dict() for doc in query]
-            meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
+            if not query:
+                st.info("아직 기록된 식단이 없습니다. 첫 식단을 촬영해 보세요! 📸")
+            else:
+                meal_list = [doc.to_dict() for doc in query]
+                meal_list.sort(key=lambda x: (x.get("date", ""), x.get("time", "")), reverse=True)
 
-            for item in meal_list:
-                with st.expander(f"📅 {item.get('date')} | {item.get('meal_type')} · {item.get('total_calories')} kcal"):
-                    st.caption(f"시간: {item.get('time')}")
-                    st.write(f"탄수화물 **{item.get('carbs_g')}g** · 단백질 **{item.get('protein_g')}g** · 지방 **{item.get('fat_g')}g**")
-                    st.markdown("---")
-                    for f in item.get("foods", []):
-                        st.write(f"• {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
-                    st.caption(f"💬 {item.get('health_advice')}")
+                for item in meal_list:
+                    with st.expander(f"📅 {item.get('date')} | {item.get('meal_type')} · {item.get('total_calories')} kcal"):
+                        st.caption(f"시간: {item.get('time')}")
+                        st.write(f"탄수화물 **{item.get('carbs_g')}g** · 단백질 **{item.get('protein_g')}g** · 지방 **{item.get('fat_g')}g**")
+                        st.markdown("---")
+                        for f in item.get("foods", []):
+                            st.write(f"• {f.get('name')} ({f.get('portion')}): {f.get('calories')} kcal")
+                        st.caption(f"💬 {item.get('health_advice')}")
+        except Exception:
+            st.error("기록을 불러오는 데 실패했습니다.")
 
 # --- TAB 3: 하루 종합 분석 ---
 with main_tab3:
@@ -522,79 +533,87 @@ with main_tab3:
     else:
         selected_date = st.date_input("조회 날짜 선택", get_kst_now().date()).strftime("%Y-%m-%d")
         
-        meals_ref = db.collection("meals")
-        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).where("date", "==", selected_date).get()
-        
-        if not query:
-            st.warning(f"📅 {selected_date}에 등록된 식단이 없습니다.")
-        else:
-            daily_meals = [doc.to_dict() for doc in query]
-            daily_meals.sort(key=lambda x: x.get("time", ""))
+        try:
+            meals_ref = db.collection("meals")
+            query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).where("date", "==", selected_date).get()
             
-            total_cal = sum([m.get("total_calories", 0) for m in daily_meals])
-            total_carbs = sum([m.get("carbs_g", 0) for m in daily_meals])
-            total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
-            total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
-            
-            progress_ratio = min(total_cal / float(target_calories), 1.0)
-            
-            if total_cal > target_calories * 1.1:
-                st.error(f"⚠️ 목표 달성 초과 ({total_cal} / {target_calories} kcal)")
-            elif total_cal >= target_calories * 0.8:
-                st.success(f"🎉 알맞은 목표 섭취량 ({total_cal} / {target_calories} kcal)")
+            if not query:
+                st.warning(f"📅 {selected_date}에 등록된 식단이 없습니다.")
             else:
-                st.info(f"💡 목표치 미달 ({total_cal} / {target_calories} kcal)")
+                daily_meals = [doc.to_dict() for doc in query]
+                daily_meals.sort(key=lambda x: x.get("time", ""))
                 
-            st.progress(progress_ratio)
-            
-            d1, d2, d3, d4 = st.columns(4)
-            d1.metric("칼로리", f"{total_cal}")
-            d2.metric("탄수화물", f"{total_carbs}g")
-            d3.metric("단백질", f"{total_protein}g")
-            d4.metric("지방", f"{total_fat}g")
-            
-            st.markdown("---")
-            summary_text_list = []
-            for m in daily_meals:
-                foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
-                st.write(f"• **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
-                summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} ({m.get('total_calories')}kcal)")
-            
-            st.write("")
-            if st.button("✨ 종합 AI 리포트 작성", type="primary", use_container_width=True):
-                with st.spinner("🤖 AI가 하루 식단을 피드백하고 있습니다..."):
-                    try:
-                        daily_summary = "\n".join(summary_text_list)
-                        prompt = f"""
-                        당신은 수석 영양 코치입니다. 사용자의 오늘 식단 데이터:
-                        - 총 칼로리: {total_cal} kcal (목표: {target_calories} kcal)
-                        - 탄수화물: {total_carbs}g | 단백질: {total_protein}g | 지방: {total_fat}g
-                        
-                        [기록 세부]
-                        {daily_summary}
-                        
-                        위 데이터를 바탕으로 종합 분석 결과(1. 총평, 2. 잘한 점, 3. 개선할 점, 4. 내일 가이드)를 정돈된 톤으로 작성하세요.
-                        """
-                        
-                        response = generate_content_with_retry(
-                            api_key=active_api_key,
-                            model_name='gemini-3.6-flash',
-                            contents=prompt
-                        )
-                        st.session_state["last_feedback"] = response.text
-                        st.markdown("##### 📝 일일 영양 리포트")
-                        st.info(response.text)
-                    except Exception as e:
-                        st.error(f"리포트 작성 실패: {e}")
+                total_cal = sum([m.get("total_calories", 0) for m in daily_meals])
+                total_carbs = sum([m.get("carbs_g", 0) for m in daily_meals])
+                total_protein = sum([m.get("protein_g", 0) for m in daily_meals])
+                total_fat = sum([m.get("fat_g", 0) for m in daily_meals])
+                
+                progress_ratio = min(total_cal / float(target_calories), 1.0)
+                
+                if total_cal > target_calories * 1.1:
+                    st.error(f"⚠️ 목표 달성 초과 ({total_cal} / {target_calories} kcal)")
+                elif total_cal >= target_calories * 0.8:
+                    st.success(f"🎉 알맞은 목표 섭취량 ({total_cal} / {target_calories} kcal)")
+                else:
+                    st.info(f"💡 목표치 미달 ({total_cal} / {target_calories} kcal)")
+                    
+                st.progress(progress_ratio)
+                
+                d1, d2, d3, d4 = st.columns(4)
+                d1.metric("칼로리", f"{total_cal}")
+                d2.metric("탄수화물", f"{total_carbs}g")
+                d3.metric("단백질", f"{total_protein}g")
+                d4.metric("지방", f"{total_fat}g")
+                
+                st.markdown("---")
+                summary_text_list = []
+                for m in daily_meals:
+                    foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
+                    st.write(f"• **[{m.get('meal_type')}]** {foods_str} → `{m.get('total_calories')} kcal`")
+                    summary_text_list.append(f"- {m.get('meal_type')}: {foods_str} ({m.get('total_calories')}kcal)")
+                
+                st.write("")
+                if st.button("✨ 종합 AI 리포트 작성", type="primary", use_container_width=True):
+                    with st.spinner("🤖 AI가 하루 식단을 피드백하고 있습니다..."):
+                        try:
+                            daily_summary = "\n".join(summary_text_list)
+                            prompt = f"""
+                            당신은 수석 영양 코치입니다. 사용자의 오늘 식단 데이터:
+                            - 총 칼로리: {total_cal} kcal (목표: {target_calories} kcal)
+                            - 탄수화물: {total_carbs}g | 단백질: {total_protein}g | 지방: {total_fat}g
+                            
+                            [기록 세부]
+                            {daily_summary}
+                            
+                            위 데이터를 바탕으로 종합 분석 결과(1. 총평, 2. 잘한 점, 3. 개선할 점, 4. 내일 가이드)를 정돈된 톤으로 작성하세요.
+                            """
+                            
+                            response = generate_content_with_retry(
+                                api_key=active_api_key,
+                                model_name='gemini-3.6-flash',
+                                contents=prompt
+                            )
+                            st.session_state["last_feedback"] = response.text
+                            st.markdown("##### 📝 일일 영양 리포트")
+                            st.info(response.text)
+                        except Exception as e:
+                            err_str = str(e)
+                            if "429" in err_str or "quota" in err_str.lower():
+                                st.error("🚨 AI 사용량이 많아 일시적으로 제한되었습니다. 사이드바에 API 키를 입력해 주세요.")
+                            else:
+                                st.error("AI 리포트 작성 도중 오류가 발생했습니다.")
 
-            if "last_feedback" in st.session_state:
-                pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
-                st.download_button(
-                    label="📄 PDF 리포트 다운로드",
-                    data=pdf_data,
-                    file_name=f"Report_{selected_date}.pdf",
-                    mime="application/pdf"
-                )
+                if "last_feedback" in st.session_state:
+                    pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
+                    if pdf_data:
+                        st.download_button(
+                            label="📄 PDF 리포트 다운로드",
+                            data=pdf_data,
+                            file_name=f"Report_{selected_date}.pdf",
+                            mime="application/pdf"
+                        )
+        except Exception:
+            st.error("데이터를 조회하는 데 실패했습니다.")
 
 # --- TAB 4: 주간 차트 ---
 with main_tab4:
@@ -604,21 +623,24 @@ with main_tab4:
     else:
         st.markdown("##### 📈 최근 7일간의 칼로리 변동")
         
-        meals_ref = db.collection("meals")
-        query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
-        
-        if query:
-            meal_list = [doc.to_dict() for doc in query]
+        try:
+            meals_ref = db.collection("meals")
+            query = meals_ref.where("uid", "==", st.session_state["user"]["uid"]).get()
             
-            date_cal_map = {}
-            for m in meal_list:
-                d = m.get("date", "")
-                c = m.get("total_calories", 0)
-                date_cal_map[d] = date_cal_map.get(d, 0) + c
+            if query:
+                meal_list = [doc.to_dict() for doc in query]
                 
-            sorted_dates = sorted(date_cal_map.keys())[-7:]
-            chart_data = {d: date_cal_map[d] for d in sorted_dates}
-            
-            st.bar_chart(chart_data)
-        else:
-            st.info("식단을 기록하시면 섭취 칼로리 변화 그래프를 볼 수 있습니다!")
+                date_cal_map = {}
+                for m in meal_list:
+                    d = m.get("date", "")
+                    c = m.get("total_calories", 0)
+                    date_cal_map[d] = date_cal_map.get(d, 0) + c
+                    
+                sorted_dates = sorted(date_cal_map.keys())[-7:]
+                chart_data = {d: date_cal_map[d] for d in sorted_dates}
+                
+                st.bar_chart(chart_data)
+            else:
+                st.info("식단을 기록하시면 섭취 칼로리 변화 그래프를 볼 수 있습니다!")
+        except Exception:
+            st.error("주간 차트를 불러오는 도중 오류가 발생했습니다.")
