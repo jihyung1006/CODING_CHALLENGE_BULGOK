@@ -8,7 +8,6 @@ import qrcode
 from PIL import Image
 import google.generativeai as genai
 import extra_streamlit_components as stx
-from fpdf import FPDF
 
 # Firebase Admin SDK
 import firebase_admin
@@ -88,38 +87,137 @@ def generate_content_with_retry(api_key, model_name, contents, max_retries=3):
                 raise e
 
 # =========================================================
-# 📄 PDF 리포트 생성 (한글 인코딩 및 안전 처리)
+# 📄 웹 기반 깔끔한 PDF 출력 컴포넌트 (한글 완벽 지원)
 # =========================================================
-def generate_pdf_report(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
-    try:
-        pdf = FPDF()
-        pdf.add_page()
-        pdf.set_font("Helvetica", size=12)
-        
-        pdf.cell(200, 10, text=f"Daily Nutrition Report ({date_str})", new_x="LMARGIN", new_y="NEXT", align="C")
-        pdf.ln(5)
-        pdf.cell(200, 10, text=f"Total: {total_cal} kcal | Carbs: {total_carbs}g | Protein: {total_protein}g | Fat: {total_fat}g", new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(5)
-        
-        pdf.cell(200, 10, text="[ Today's Meals ]", new_x="LMARGIN", new_y="NEXT")
-        for m in daily_meals:
-            foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
-            clean_foods = foods_str.encode('ascii', 'ignore').decode('ascii')
-            meal_type_clean = m.get('meal_type', '').encode('ascii', 'ignore').decode('ascii')
-            pdf.cell(200, 8, text=f"- [{meal_type_clean}] {clean_foods} : {m.get('total_calories')} kcal", new_x="LMARGIN", new_y="NEXT")
-        
-        pdf.ln(5)
-        pdf.cell(200, 10, text="[ AI Feedback ]", new_x="LMARGIN", new_y="NEXT")
-        
-        # 기본 폰트 한글 깨짐 방지 안전 인코딩
-        clean_text = feedback_text.encode('latin-1', 'ignore').decode('latin-1')
-        if not clean_text.strip():
-            clean_text = "Daily nutrition summary generated successfully."
-            
-        pdf.multi_cell(0, 8, text=clean_text)
-        return bytes(pdf.output())
-    except Exception:
-        return None
+def render_pdf_download_button(date_str, total_cal, total_carbs, total_protein, total_fat, daily_meals, feedback_text):
+    meals_html = ""
+    for m in daily_meals:
+        foods_str = ", ".join([f"{f['name']}({f['portion']})" for f in m.get("foods", [])])
+        meals_html += f"<li><b>[{m.get('meal_type')}]</b> {foods_str} — <span>{m.get('total_calories')} kcal</span></li>"
+
+    formatted_feedback = feedback_text.replace("\n", "<br>")
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <style>
+            @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+            body {{
+                font-family: 'Pretendard', sans-serif;
+                padding: 30px;
+                color: #1e293b;
+                line-height: 1.6;
+            }}
+            .header {{
+                border-bottom: 2px solid #22c55e;
+                padding-bottom: 12px;
+                margin-bottom: 20px;
+            }}
+            .header h1 {{
+                margin: 0;
+                color: #15803d;
+                font-size: 24px;
+            }}
+            .date {{
+                color: #64748b;
+                font-size: 14px;
+            }}
+            .summary-box {{
+                background-color: #f0fdf4;
+                border: 1px solid #bbf7d0;
+                border-radius: 8px;
+                padding: 16px;
+                margin-bottom: 24px;
+                display: flex;
+                justify-content: space-around;
+            }}
+            .stat-item {{
+                text-align: center;
+            }}
+            .stat-title {{
+                font-size: 12px;
+                color: #166534;
+            }}
+            .stat-val {{
+                font-size: 18px;
+                font-weight: bold;
+                color: #15803d;
+            }}
+            .section-title {{
+                font-size: 16px;
+                font-weight: bold;
+                border-left: 4px solid #22c55e;
+                padding-left: 8px;
+                margin-top: 24px;
+                margin-bottom: 12px;
+            }}
+            ul {{
+                list-style-type: none;
+                padding-left: 0;
+            }}
+            li {{
+                padding: 8px 12px;
+                background-color: #f8fafc;
+                margin-bottom: 6px;
+                border-radius: 6px;
+                font-size: 14px;
+            }}
+            .feedback-box {{
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                padding: 16px;
+                border-radius: 8px;
+                font-size: 14px;
+                white-space: pre-wrap;
+            }}
+            .btn-print {{
+                background-color: #22c55e;
+                color: white;
+                border: none;
+                padding: 10px 18px;
+                font-size: 14px;
+                font-weight: bold;
+                border-radius: 8px;
+                cursor: pointer;
+                width: 100%;
+                margin-top: 10px;
+            }}
+            .btn-print:hover {{
+                background-color: #16a34a;
+            }}
+            @media print {{
+                .btn-print {{ display: none; }}
+                body {{ padding: 0; }}
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>🥗 Daily Nutrition Report</h1>
+            <div class="date">날짜: {date_str}</div>
+        </div>
+
+        <div class="summary-box">
+            <div class="stat-item"><div class="stat-title">총 칼로리</div><div class="stat-val">{total_cal} kcal</div></div>
+            <div class="stat-item"><div class="stat-title">탄수화물</div><div class="stat-val">{total_carbs}g</div></div>
+            <div class="stat-item"><div class="stat-title">단백질</div><div class="stat-val">{total_protein}g</div></div>
+            <div class="stat-item"><div class="stat-title">지방</div><div class="stat-val">{total_fat}g</div></div>
+        </div>
+
+        <div class="section-title">🍱 오늘의 식단 기록</div>
+        <ul>{meals_html}</ul>
+
+        <div class="section-title">💡 종합 AI 영양 피드백</div>
+        <div class="feedback-box">{formatted_feedback}</div>
+
+        <button class="btn-print" onclick="window.print()">📄 깔끔한 PDF로 저장 / 인쇄하기</button>
+    </body>
+    </html>
+    """
+
+    st.components.v1.html(html_content, height=480, scrolling=True)
 
 # ---------------------------------------------------------
 # 🍪 쿠키 및 세션 관리
@@ -344,7 +442,7 @@ if st.session_state["current_page"] == "guide":
 
     st.write("")
 
-    # 이전/다음 네비게이션 버튼 (숫자 표기 수정 완료)
+    # 이전/다음 네비게이션 버튼
     nav_col1, nav_col2, nav_col3 = st.columns([2, 3, 2])
     with nav_col1:
         if current_step > 1:
@@ -594,8 +692,6 @@ with main_tab3:
                                 contents=prompt
                             )
                             st.session_state["last_feedback"] = response.text
-                            st.markdown("##### 📝 일일 영양 리포트")
-                            st.info(response.text)
                         except Exception as e:
                             err_str = str(e)
                             if "429" in err_str or "quota" in err_str.lower():
@@ -604,14 +700,17 @@ with main_tab3:
                                 st.error("AI 리포트 작성 도중 오류가 발생했습니다.")
 
                 if "last_feedback" in st.session_state:
-                    pdf_data = generate_pdf_report(selected_date, total_cal, total_carbs, total_protein, total_fat, daily_meals, st.session_state["last_feedback"])
-                    if pdf_data:
-                        st.download_button(
-                            label="📄 PDF 리포트 다운로드",
-                            data=pdf_data,
-                            file_name=f"Report_{selected_date}.pdf",
-                            mime="application/pdf"
-                        )
+                    st.markdown("---")
+                    st.markdown("##### 📄 PDF 미리보기 & 저장")
+                    render_pdf_download_button(
+                        selected_date, 
+                        total_cal, 
+                        total_carbs, 
+                        total_protein, 
+                        total_fat, 
+                        daily_meals, 
+                        st.session_state["last_feedback"]
+                    )
         except Exception:
             st.error("데이터를 조회하는 데 실패했습니다.")
 
