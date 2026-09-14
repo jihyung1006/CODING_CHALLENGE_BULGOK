@@ -35,7 +35,6 @@ html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Pretendard', sans-serif !important;
 }
 
-/* 카드 라운딩 및 그림자 */
 [data-testid="stForm"], .stContainer {
     border-radius: 12px;
 }
@@ -261,7 +260,7 @@ if not st.session_state["user"]:
     st.stop()
 
 # =========================================================
-# 📄 PAGE 2: 사용방법 전용 화면 (이미지 & 친근한 말투 적용)
+# 📄 PAGE 2: 사용방법 전용 화면 (내 웹사이트 로컬 이미지 경로 적용)
 # =========================================================
 if st.session_state["current_page"] == "guide":
     st.markdown("## 📖 앱 사용방법 가이드")
@@ -282,19 +281,27 @@ if st.session_state["current_page"] == "guide":
 
     st.write("")
 
-    # 메인 가이드 카드 (이미지 + 설명)
+    # 메인 가이드 카드 (내 로컬 이미지 파일 지정)
     with st.container(border=True):
         if current_step == 1:
-            st.image("https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            try:
+                st.image("images/step1.jpg", use_container_width=True)
+            except Exception:
+                st.info("📌 'images/step1.jpg' 이미지를 준비해 주시면 여기에 표시됩니다!")
+
             st.markdown("### 📸 STEP 1. 식단 사진 찍기 & AI 분석")
             st.markdown("""
             * **카메라로 음식을 바로 촬영**하거나 **갤러리 사진을 선택**해서 업로드하시면 됩니다!
             * 아래 `⚡️ 식단 스캔` 버튼을 누르시면 AI가 칼로리와 탄/단/지 영양 성분을 알아서 분석해 줍니다!
-            * 촬영하신 시각에 따라 **아침, 점심, 저녁, 야식**으로 알아서 쏙 분주됩니다!
+            * 촬영하신 시각에 따라 **아침, 점심, 저녁, 야식**으로 알아서 쏙 분류됩니다!
             """)
 
         elif current_step == 2:
-            st.image("https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            try:
+                st.image("images/step2.jpg", use_container_width=True)
+            except Exception:
+                st.info("📌 'images/step2.jpg' 이미지를 준비해 주시면 여기에 표시됩니다!")
+
             st.markdown("### 💧 STEP 2. 수분 섭취 & 목표 관리")
             st.markdown("""
             * **왼쪽 사이드바 메뉴**를 통해 언제든지 하루 목표 칼로리를 직접 수정하시면 됩니다!
@@ -303,7 +310,11 @@ if st.session_state["current_page"] == "guide":
             """)
 
         elif current_step == 3:
-            st.image("https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            try:
+                st.image("images/step3.jpg", use_container_width=True)
+            except Exception:
+                st.info("📌 'images/step3.jpg' 이미지를 준비해 주시면 여기에 표시됩니다!")
+
             st.markdown("### 📊 STEP 3. 하루 종합 AI 리포트")
             st.markdown("""
             * **`일일 리포트`** 탭에 가셔서 원하는 날짜를 선택하시면 하루 영양 비율을 한눈에 보실 수 있습니다!
@@ -312,7 +323,11 @@ if st.session_state["current_page"] == "guide":
             """)
 
         elif current_step == 4:
-            st.image("https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            try:
+                st.image("images/step4.jpg", use_container_width=True)
+            except Exception:
+                st.info("📌 'images/step4.jpg' 이미지를 준비해 주시면 여기에 표시됩니다!")
+
             st.markdown("### 📲 STEP 4. 모바일 연결 & 과거 히스토리")
             st.markdown("""
             * **`히스토리`** 탭을 클릭하시면 지금까지 적었던 식단 기록을 언제든 편하게 둘러보실 수 있습니다!
