@@ -26,13 +26,18 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# 기본 폰트 및 최소한의 레이아웃 다듬기용 CSS
+# 기본 폰트 및 카드 스타일 다듬기용 CSS
 st.markdown("""
 <style>
 @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
 
 html, body, [data-testid="stAppViewContainer"] {
     font-family: 'Pretendard', sans-serif !important;
+}
+
+/* 카드 라운딩 및 그림자 */
+[data-testid="stForm"], .stContainer {
+    border-radius: 12px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -256,18 +261,17 @@ if not st.session_state["user"]:
     st.stop()
 
 # =========================================================
-# 📄 PAGE 2: 사용방법 전용 화면 (사이드바 선택 시)
+# 📄 PAGE 2: 사용방법 전용 화면 (이미지 & 친근한 말투 적용)
 # =========================================================
 if st.session_state["current_page"] == "guide":
     st.markdown("## 📖 앱 사용방법 가이드")
-    st.caption("버튼을 눌러 좌우 슬라이드로 한눈에 확인해 보세요.")
+    st.caption("슬라이드 버튼을 누르시면 단계별 이용 방법을 한눈에 확인하실 수 있습니다!")
     st.write("")
 
     TOTAL_STEPS = 4
     current_step = st.session_state["guide_step"]
 
-    # 빠른 슬라이드 번호 이동 버튼 그룹
-    st.write("**단계 바로가기**")
+    # 상단 단계 선택 버튼 그룹
     btn_cols = st.columns(TOTAL_STEPS)
     for i in range(1, TOTAL_STEPS + 1):
         with btn_cols[i - 1]:
@@ -278,37 +282,46 @@ if st.session_state["current_page"] == "guide":
 
     st.write("")
 
-    # 슬라이드 내용 출력 카드 영역
+    # 메인 가이드 카드 (이미지 + 설명)
     with st.container(border=True):
         if current_step == 1:
-            st.markdown("### 📸 STEP 1. 식단 사진 찍기 & 스캔")
+            st.image("https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            st.markdown("### 📸 STEP 1. 식단 사진 찍기 & AI 분석")
             st.markdown("""
-            * **카메라 촬영** 또는 **갤러리 파일 선택**으로 먹은 음식을 업로드하세요.
-            * `⚡️ 식단 스캔` 버튼을 누르면 AI가 영양 성분(칼로리, 탄/단/지)을 자동 분석합니다.
-            * 촬영 시간에 맞춰 **아침, 점심, 저녁, 야식**으로 알아서 등록됩니다.
+            * **카메라로 음식을 바로 촬영**하거나 **갤러리 사진을 선택**해서 업로드하시면 됩니다!
+            * 아래 `⚡️ 식단 스캔` 버튼을 누르시면 AI가 칼로리와 탄/단/지 영양 성분을 알아서 분석해 줍니다!
+            * 촬영하신 시각에 따라 **아침, 점심, 저녁, 야식**으로 알아서 쏙 분주됩니다!
             """)
+
         elif current_step == 2:
-            st.markdown("### 💧 STEP 2. 수분 섭취 & 목표 칼로리 관리")
+            st.image("https://images.unsplash.com/photo-1548839140-29a749e1bc4e?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            st.markdown("### 💧 STEP 2. 수분 섭취 & 목표 관리")
             st.markdown("""
-            * **왼쪽 사이드바 메뉴**를 통해 언제든지 하루 목표 칼로리를 변경할 수 있습니다.
-            * 물을 마셨다면 `💧 +250ml` 버튼을 눌러 하루 수분 섭취 목표(2,000ml)를 채워보세요.
+            * **왼쪽 사이드바 메뉴**를 통해 언제든지 하루 목표 칼로리를 직접 수정하시면 됩니다!
+            * 물을 마실 때마다 `💧 +250ml` 버튼을 누르시면 수분 섭취량이 깔끔하게 차곡차곡 채워집니다!
+            * 진행 바(Progress Bar)를 통해 목표 2,000ml 대비 얼마큼 마셨는지 바로바로 확인하실 수 있습니다!
             """)
+
         elif current_step == 3:
-            st.markdown("### 📊 STEP 3. 일일 리포트 & AI 코칭")
+            st.image("https://images.unsplash.com/photo-1490645935967-10de6ba17061?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            st.markdown("### 📊 STEP 3. 하루 종합 AI 리포트")
             st.markdown("""
-            * **`일일 리포트`** 메뉴에서 오늘 하루 먹은 전체 영양 정보와 비율을 점검합니다.
-            * AI 수석 코치가 발행해 주는 피드백을 확인하고 필요하면 **PDF 리포트로 다운로드**하여 보관하세요.
+            * **`일일 리포트`** 탭에 가셔서 원하는 날짜를 선택하시면 하루 영양 비율을 한눈에 보실 수 있습니다!
+            * `✨ 종합 AI 리포트 작성`을 누르시면 AI 영양 코치가 오늘 식단 피드백과 코칭을 적어 드립니다!
+            * 소장하고 싶으신 경우 `📄 PDF 리포트 다운로드`를 누르시면 파일로 간직하실 수도 있습니다!
             """)
+
         elif current_step == 4:
-            st.markdown("### 📲 STEP 4. 기록 조회 & 모바일 QR 접속")
+            st.image("https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=800&q=80", use_container_width=True)
+            st.markdown("### 📲 STEP 4. 모바일 연결 & 과거 히스토리")
             st.markdown("""
-            * **`히스토리`** 탭을 통해 지금까지 누적된 식단 일기를 언제든 다시 찾아볼 수 있습니다.
-            * 사이드바 하단에 제공되는 **QR 코드를 촬영**하면 모바일 기기에서도 동일하게 사용할 수 있습니다.
+            * **`히스토리`** 탭을 클릭하시면 지금까지 적었던 식단 기록을 언제든 편하게 둘러보실 수 있습니다!
+            * 사이드바 밑에 있는 **QR 코드를 스마트폰 카메라로 스캔**하시면 모바일 화면에서도 바로 앱을 이용하실 수 있습니다!
             """)
 
     st.write("")
 
-    # 좌우 넘기기 컨트롤 버튼
+    # 이전/다음 네비게이션 버튼
     nav_col1, nav_col2, nav_col3 = st.columns([2, 3, 2])
     with nav_col1:
         if current_step > 1:
@@ -317,7 +330,7 @@ if st.session_state["current_page"] == "guide":
                 st.rerun()
 
     with nav_col2:
-        st.markdown(f"<p style='text-align: center; margin-top: 8px;'><b>{current_step} / {TOTAL_STEPS} 페이지</b></p>", unsafe_allow_html=True)
+        st.markdown(f"<p style='text-align: center; margin-top: 8px;'><b>{current_step} / {TOTAL_STEPS} 슬라이드</b></p>", unsafe_allow_html=True)
 
     with nav_col3:
         if current_step < TOTAL_STEPS:
@@ -326,7 +339,7 @@ if st.session_state["current_page"] == "guide":
                 st.rerun()
 
     st.divider()
-    if st.button("🏠 메인 화면으로 돌아가기", use_container_width=True):
+    if st.button("🏠 메인 서비스 화면으로 돌아가기", use_container_width=True):
         st.session_state["current_page"] = "home"
         st.rerun()
 
